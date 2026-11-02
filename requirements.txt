@@ -1,0 +1,14 @@
+# Runtime dependency.
+pygame>=2.6.1
+
+# Development tooling (required by the subject's Makefile rules).
+flake8>=7.1.1
+mypy>=1.13.0
+pytest>=8.3.4
+
+# Packaging for the Itch.io / Steam build.
+pyinstaller>=6.11.1
+
+# The assigned A-Maze-ing package (mazegenerator 2.1.0) is NOT listed here.
+# It is not on PyPI; the wheel lives in vendor/ and `make install`
+# installs it from there.
