@@ -32,7 +32,6 @@ class Direction(Enum):
     Each member carries its own ``(dx, dy)`` step. ``y`` grows downwards,
     matching the row-major maze layout.
     """
-
     NORTH = (0, -1)
     EAST = (1, 0)
     SOUTH = (0, 1)
