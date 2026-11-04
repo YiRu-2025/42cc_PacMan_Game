@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_CONFIG_PATH = Path("config.json")
+MIN_LEVELS = 10
 
 
 # --------------------------------------------------------------------------
@@ -27,6 +28,10 @@ class LevelConfig:
     height: int = 15
 
 
+def _default_levels() -> tuple[LevelConfig, ...]:
+    return tuple(LevelConfig(15 + i, 11 + i // 2) for i in range(MIN_LEVELS))
+
+
 @dataclass(frozen=True)
 class Config:
     highscore_filename: str = "highscore.json"
@@ -37,7 +42,7 @@ class Config:
     points_per_ghost: int = 200
     seed: int = 42
     level_max_time: int = 90
-    levels: tuple[LevelConfig, ...] = (LevelConfig(),)
+    levels: tuple[LevelConfig, ...] = _default_levels()
 
 
 # --------------------------------------------------------------------------
@@ -52,7 +57,7 @@ INT_RULES: dict[str, tuple[int, int]] = {
     "points_per_pacgum": (0, 10_000),
     "points_per_super_pacgum": (0, 10_000),
     "points_per_ghost": (0, 10_000),
-    "seed": (0, 2**32 - 1),
+    "seed": (1, 2**32 - 1),
     "level_max_time": (1, 3600),
 }
 LEVEL_SIZE_RULE = (5, 200)  # TODO: minimum maze size your generator can handle
@@ -136,7 +141,8 @@ def validated_str(data: dict[str, Any], key: str, default: str) -> str:
 
 
 def validated_levels(data: dict[str, Any],
-                     default: tuple[LevelConfig, ...]) -> tuple[LevelConfig, ...]: # noqa 
+                     default: tuple[LevelConfig, ...]
+                     ) -> tuple[LevelConfig, ...]:
     """Build the tuple of LevelConfig from data["levels"]."""
     raw = data.get("levels")
     if raw is None:
@@ -146,16 +152,23 @@ def validated_levels(data: dict[str, Any],
         return default
 
     base = LevelConfig()
-    levels = []
+    levels: list[LevelConfig] = []
     for i, item in enumerate(raw):
         if not isinstance(item, dict):
             warn(f"levels[{i}] must be an object. Level skipped.")
             continue
         levels.append(LevelConfig(
             width=validated_int(item, "width", base.width, *LEVEL_SIZE_RULE),
-            height=validated_int(item, "height", base.height, *LEVEL_SIZE_RULE), # noqa 
+            height=validated_int(item, "height", base.height,
+                                 *LEVEL_SIZE_RULE),
         ))
-    return tuple(levels) or default         # never return an empty tuple
+
+    levels = levels or list(default)
+    if len(levels) < MIN_LEVELS:
+        warn(f"only {len(levels)} levels configured; "
+             f"padding to {MIN_LEVELS}.")
+        levels += list(default)[len(levels):MIN_LEVELS]
+    return tuple(levels)
 
 
 # ---------------------------------------------------------------------------
