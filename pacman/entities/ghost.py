@@ -19,9 +19,8 @@ class GhostState(Enum):
 
 
 class Ghost(Entity):
-    def __init__(self, home: Cell, speed: float = 6.0,
-                 fright_factor: float = 0.6,
-                 respawn_delay: float = 5.0) -> None:
+    def __init__(self, home: Cell, speed: float,
+                 fright_factor: float, respawn_delay: float) -> None:
         super().__init__(home, speed)
         self.home = home
         self._base_speed = speed
@@ -39,6 +38,8 @@ class Ghost(Entity):
         self.speed = self._base_speed * self._fright_factor
 
     def eaten(self) -> None:
+        """after being eaten, the player is dead once
+        the ghost should reset to home position."""
         self.state = GhostState.DEAD
         self.timer = self._respawn_delay
         self.reset(self.home)

@@ -84,7 +84,14 @@ PLAYER_FRAME_COUNT: Final[int] = 3
 GHOST_FRAME_COUNT: Final[int] = 2
 ANIMATION_FPS: Final[float] = 6.0
 
+RESPAWN_GRACE: Final[float] = 2.0
+"""Seconds of invulnerability after the player (re)spawns."""
 
+MAX_FRAME_DT: Final[float] = 0.1
+"""Longest time step simulated at once; also used by gfx.present()."""
+
+FRIGHTENED_SPEED_FACTOR: Final[float] = 0.6
+"""Frightened ghosts move at this fraction of their normal speed."""
 # --------------------------------------------------------------------------
 # Layout
 #
