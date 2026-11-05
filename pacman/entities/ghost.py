@@ -8,14 +8,32 @@ use one table for recording the distance
 from enum import Enum
 from typing import Any
 from pacman.entities.base import Entity
-from pacman.maze_loader_2 import Cell
+from pacman.maze_loader_2 import Cell, Grid
 from pacman.level import Level
+from collections import deque
 
 
 class GhostState(Enum):
     CHASE = "chase"
     FRIGHTENED = "frightened"
     DEAD = "dead"
+
+
+def distance_map(grid: Grid, start: Cell) -> dict[Cell, int]:
+    """Return the BFS step count from ``start`` to every reachable cell.
+
+    One call per frame is shared by all ghosts: chasing picks the
+    neighbour with the smallest value, fleeing the largest.
+    """
+    dist = {start: 0}
+    queue = deque([start])
+    while queue:
+        cell = queue.popleft()
+        for nxt in grid.neighbours(*cell):
+            if nxt not in dist:
+                dist[nxt] = dist[cell] + 1
+                queue.append(nxt)
+    return dist
 
 
 class Ghost(Entity):
