@@ -3,28 +3,30 @@
 The generator returns a grid of wall bitmasks; this module wraps it so the
 rest of the game never imports the third-party package directly and never
 has to know about its bit encoding.
+
+Directions come from ``pacman.constants``: the bitmask is an encoding detail
+of the generator, so it stays private to this module and is exposed only
+through ``Grid`` methods that speak ``Direction``.
 """
 
 from collections import deque
 from dataclasses import dataclass
 from typing import Final
 
-NORTH: Final[int] = 1
-EAST: Final[int] = 2
-SOUTH: Final[int] = 4
-WEST: Final[int] = 8
+from pacman.constants import WALL_ORDER, Direction
+
+Cell = tuple[int, int]
+
+WALL_BIT: Final[dict[Direction, int]] = {
+    Direction.NORTH: 1,
+    Direction.EAST: 2,
+    Direction.SOUTH: 4,
+    Direction.WEST: 8,
+}
+"""Bit set in a cell's mask when that side is walled."""
 
 SEALED: Final[int] = 15
 """A cell with all four walls up: part of the generator's '42' pattern."""
-
-DIRECTIONS: Final[tuple[tuple[int, int, int], ...]] = (
-    (0, -1, NORTH),
-    (1, 0, EAST),
-    (0, 1, SOUTH),
-    (-1, 0, WEST),
-)
-
-Cell = tuple[int, int]
 
 
 class MazeError(Exception):
@@ -37,39 +39,51 @@ class Grid:
 
     width: int
     height: int
+    cells: tuple[tuple[int, ...], ...]
     walkable: frozenset[Cell]
-
-    def is_open(self, x: int, y: int, direction: int) -> bool:
-        """Return True if a mover can leave ``(x, y)`` in ``direction``."""
-
-        if not self.contains(x, y):
-            return False
-        if self.cells[y][x] & direction:
-            return False
-        for dx, dy, code in DIRECTIONS:
-            if code == direction:
-                return (x + dx, y + dy) in self.walkable
-        return False
-
-    def neighbours(self, x: int, y: int) -> list[Cell]:
-        """Return every walkable cell directly reachable from ``(x, y)``."""
-        result: list[Cell] = []
-        for dx, dy, code in DIRECTIONS:
-            if self.is_open(x, y, code):
-                result.append((x + dx, y + dy))
-        return result
 
     def contains(self, x: int, y: int) -> bool:
         """Return True if ``(x, y)`` lies inside the grid bounds."""
         return 0 <= x < self.width and 0 <= y < self.height
+
+    def is_open(self, x: int, y: int, direction: Direction) -> bool:
+        """Return True if a mover can leave ``(x, y)`` in ``direction``."""
+        if not self.contains(x, y):
+            return False
+        if self.cells[y][x] & WALL_BIT[direction]:
+            return False
+        return (x + direction.dx, y + direction.dy) in self.walkable
+
+    def neighbours(self, x: int, y: int) -> list[Cell]:
+        """Return every walkable cell directly reachable from ``(x, y)``.
+
+        Cells come in north, east, south, west order, so results are
+        deterministic.
+        """
+        return [
+            (x + d.dx, y + d.dy)
+            for d in WALL_ORDER
+            if self.is_open(x, y, d)
+        ]
+
+    def walls_at(self, x: int, y: int) -> frozenset[Direction]:
+        """Return the blocked sides of a cell; feeds constants.wall_sprite."""
+        if not self.contains(x, y):
+            return frozenset(WALL_ORDER)
+        mask = self.cells[y][x]
+        return frozenset(d for d in WALL_ORDER if mask & WALL_BIT[d])
+
+    def is_sealed(self, x: int, y: int) -> bool:
+        """Return True for a fully enclosed cell of the '42' pattern."""
+        return self.contains(x, y) and self.cells[y][x] == SEALED
 
     def nearest_walkable(self, x: int, y: int) -> Cell:
         """Return the walkable cell closest to ``(x, y)``.
 
         The geometric centre and the four corners can fall inside the
         generator's sealed '42' pattern, so spawn points are snapped to the
-        nearest cell a mover can actually occupy.
-
+        nearest cell a mover can actually occupy. Ties are broken by
+        coordinates, so the same maze always gives the same answer.
         """
         if not self.walkable:
             raise MazeError("maze has no walkable cells")
@@ -77,11 +91,14 @@ class Grid:
             return (x, y)
         return min(
             self.walkable,
-            key=lambda c: (c[0] - x) ** 2 + (c[1] - y) ** 2,
+            key=lambda c: ((c[0] - x) ** 2 + (c[1] - y) ** 2, c),
         )
 
     def corners(self) -> list[Cell]:
-        """Return the four corner cells, snapped to walkable ones."""
+        """Return the four corner cells, snapped to walkable ones.
+
+        Order: north-west, north-east, south-west, south-east.
+        """
         raw = [
             (0, 0),
             (self.width - 1, 0),
@@ -103,12 +120,12 @@ def _flood(
     queue: deque[Cell] = deque([start])
     while queue:
         x, y = queue.popleft()
-        for dx, dy, code in DIRECTIONS:
-            nx, ny = x + dx, y + dy
+        for d in WALL_ORDER:
+            nx, ny = x + d.dx, y + d.dy
             if (
                 0 <= nx < width
                 and 0 <= ny < height
-                and not cells[y][x] & code
+                and not cells[y][x] & WALL_BIT[d]
                 and (nx, ny) not in seen
             ):
                 seen.add((nx, ny))
@@ -129,7 +146,8 @@ class MazeLoader:
             from mazegenerator import MazeGenerator
         except ImportError as exc:
             raise MazeError(
-                "the mazegenerator package is not installed; " "run 'make install'"  # noqa
+                "the mazegenerator package is not installed; "
+                "run 'make install'"
             ) from exc
         try:
             self._generator = MazeGenerator(
@@ -141,7 +159,15 @@ class MazeLoader:
             raise MazeError(f"maze generator failed to start: {exc}") from exc
 
     def generate(self, seed: int = 0) -> Grid:
-        """Generate one maze."""
+        """Generate one maze.
+
+        Args:
+            seed: A positive value gives a reproducible maze; 0 (or less)
+                asks the generator for a random one.
+
+        Raises:
+            MazeError: If the generator fails or returns unusable data.
+        """
         try:
             self._generator.generate(max(seed, 0))
             raw = self._generator.maze

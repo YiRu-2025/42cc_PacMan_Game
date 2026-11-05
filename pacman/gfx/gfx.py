@@ -5,40 +5,7 @@ Everything the rest of the game needs from the graphics layer goes through
 Events are translated into this module's own ``Event`` and ``Key`` types, so
 no other module imports pygame, directly or indirectly.
 
-MLX equivalence
----------------
-The subject allows only pygame functions that have an MLX counterpart. The
-calls used here, and their equivalents:
 
-====================================  =====================================
-pygame                                MLX
-====================================  =====================================
-``display.set_mode``                  ``mlx_new_window``
-``display.set_caption``               window title argument
-``display.flip``                      end of ``mlx_loop`` iteration
-``image.load`` / ``convert_alpha``    ``mlx_xpm_file_to_image``
-``Surface.blit``                      ``mlx_put_image_to_window``
-``Surface.fill`` on an offscreen
-  surface, then blit                  ``mlx_new_image`` + pixel fill + put
-``Surface.set_at`` / ``get_at``       ``mlx_pixel_put`` / image buffer read
-``font.Font.render`` + blit           ``mlx_string_put``
-``event.get``                         ``mlx_hook`` / ``mlx_loop_hook``
-``time.Clock.tick``                   frame pacing inside ``mlx_loop``
-====================================  =====================================
-
-Deliberately avoided, because MLX has no counterpart:
-
-* ``pygame.draw.*`` — filled shapes come from an offscreen surface that is
-  filled and blitted, exactly as one would build an MLX image buffer.
-* ``pygame.transform.*`` — scaling is done here with a nearest-neighbour
-  loop over ``get_at`` / ``set_at``, once per sprite at load time.
-* ``pygame.mixer``, ``pygame.sprite``, ``pygame.Rect`` collision,
-  ``set_alpha`` and blend modes.
-
-Two calls are extensions rather than strict equivalents, and are documented
-as such in ``project_management/analysis.md``: text is rendered at a chosen
-pixel size, where ``mlx_string_put`` has one fixed size, and the frame rate
-is capped with ``Clock.tick``.
 """
 
 import os
@@ -144,8 +111,7 @@ def _scale_nearest(source: pygame.Surface, size: int) -> pygame.Surface:
 class Gfx:
     """Window, drawing primitives, input and frame pacing."""
 
-    def __init__(self, width: int, height: int,
-                 title: str = GAME_TITLE) -> None:
+    def __init__(self, width: int, height: int, title: str = GAME_TITLE) -> None:
         """Open the window.
 
         Args:
@@ -190,8 +156,7 @@ class Gfx:
 
     # --------------------------------------------------------------- drawing
 
-    def fill_rect(self, color: Color, x: int, y: int,
-                  width: int, height: int) -> None:
+    def fill_rect(self, color: Color, x: int, y: int, width: int, height: int) -> None:
         """Fill a rectangle with a flat colour.
 
         Implemented as an offscreen surface that is filled once and then
@@ -280,8 +245,7 @@ class Gfx:
             self._fonts[size] = font
         return font
 
-    def draw_text(self, text: str, x: int, y: int, size: int,
-                  color: Color) -> None:
+    def draw_text(self, text: str, x: int, y: int, size: int, color: Color) -> None:
         """Draw a line of text with its top-left corner at ``(x, y)``.
 
         Args:
@@ -321,14 +285,21 @@ class Gfx:
             if raw.type == pygame.QUIT:
                 events.append(Event(EventType.QUIT))
             elif raw.type in (pygame.KEYDOWN, pygame.KEYUP):
-                kind = (EventType.KEY_DOWN if raw.type == pygame.KEYDOWN
-                        else EventType.KEY_UP)
+                kind = (
+                    EventType.KEY_DOWN
+                    if raw.type == pygame.KEYDOWN
+                    else EventType.KEY_UP
+                )
                 char = getattr(raw, "unicode", "")
                 if not char.isprintable():
                     char = ""
-                events.append(Event(
-                    kind, _KEY_MAP.get(raw.key, Key.OTHER), char,
-                ))
+                events.append(
+                    Event(
+                        kind,
+                        _KEY_MAP.get(raw.key, Key.OTHER),
+                        char,
+                    )
+                )
         return events
 
     # ------------------------------------------------------------- the frame

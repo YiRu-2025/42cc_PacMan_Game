@@ -12,7 +12,7 @@ PLACEHOLDER_NAME = "PLAYER"
 
 
 def warn(message: str) -> None:
-    """Report a recoverable problem to the player. """
+    """Report a recoverable problem to the player."""
     print(f"[highscores] {message}", file=sys.stderr)
 
 
@@ -105,7 +105,7 @@ class Highscores:
         return score > self._entries[-1].score
 
     def rank_of(self, score: int) -> int:
-        """Return the 1-based position ``score`` would take. """
+        """Return the 1-based position ``score`` would take."""
         if not self.qualifies(score):
             return 0
         position = sum(1 for e in self._entries if e.score >= score)
@@ -148,8 +148,7 @@ class Highscores:
         try:
             data = json.loads(text)
         except json.JSONDecodeError as exc:
-            warn(f"'{self._path}' is not valid JSON: {exc.msg}. "
-                 f"Starting empty.")
+            warn(f"'{self._path}' is not valid JSON: {exc.msg}. " f"Starting empty.")
             return
         if not isinstance(data, list):
             warn(f"'{self._path}' must contain a JSON array. Starting empty.")
@@ -168,8 +167,10 @@ class Highscores:
                 continue
             kept.append(Entry(sanitize_name(name), score))
         if dropped:
-            warn(f"ignored {dropped} unusable entr"
-                 f"{'y' if dropped == 1 else 'ies'} in '{self._path}'.")
+            warn(
+                f"ignored {dropped} unusable entr"
+                f"{'y' if dropped == 1 else 'ies'} in '{self._path}'."
+            )
 
         kept.sort(key=lambda e: -e.score)
         self._entries = kept[:HIGHSCORE_LIMIT]
@@ -193,8 +194,9 @@ class Highscores:
                 handle.write("\n")
             temporary.replace(self._path)
         except OSError as exc:
-            warn(f"cannot save to '{self._path}': {exc}. "
-                 f"This run's scores are lost.")
+            warn(
+                f"cannot save to '{self._path}': {exc}. " f"This run's scores are lost."
+            )
             try:
                 temporary.unlink(missing_ok=True)
             except OSError:

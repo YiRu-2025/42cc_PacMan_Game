@@ -5,7 +5,7 @@ python -m pytest tests/level_test.py -v
 import pytest
 
 from pacman.level import Level, Pickup, build_level
-from pacman.maze_loader_2 import Cell, Grid, MazeLoader
+from pacman.maze_loader import Cell, Grid, MazeLoader
 
 N, E, S, W = 1, 2, 4, 8
 

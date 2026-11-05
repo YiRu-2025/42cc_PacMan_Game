@@ -13,7 +13,7 @@ build_level(grid) -> Level
 """
 
 
-from pacman.maze_loader_2 import Grid, Cell
+from pacman.maze_loader import Grid, Cell
 from dataclasses import dataclass, field
 from enum import Enum
 

@@ -26,8 +26,8 @@ debug:
 	$(PYTHON) -m pdb $(ENTRY) $(CONFIG)
 
 lint:
-	$(PYTHON) -m flake8 .
-	$(PYTHON) -m mypy . $(MYPY_FLAGS)
+	flake8 --max-line-length=88 --extend-ignore=E203
+	mypy --strict .
 
 lint-strict:
 	$(PYTHON) -m flake8 .
