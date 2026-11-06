@@ -16,9 +16,9 @@ from typing import Callable
 
 from pacman.config import Config
 from pacman.constants import FALLBACK_COLORS, Layer
-from pacman.gfx import Event, EventType, Gfx, Key
+from gfx.gfx import Event, EventType, Gfx, Key
 from pacman.highscores import Highscores
-from pacman.renderer import Renderer
+from gfx.renderer import Renderer
 
 
 @dataclass(frozen=True)
