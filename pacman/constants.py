@@ -79,6 +79,10 @@ FRIGHTENED_DURATION: Final[float] = 7.0
 GHOST_RESPAWN_DELAY: Final[float] = 5.0
 DEATH_PAUSE: Final[float] = 1.5
 CHEAT_SPEED_MULTIPLIER: Final[float] = 2.0
+CHEAT_BINDINGS: Final[dict[str, str]] = {
+    "1": "skip level", "2": "invincible", "3": "freeze ghosts",
+    "4": "extra life", "5": "speed boost",
+}
 
 PLAYER_FRAME_COUNT: Final[int] = 3
 GHOST_FRAME_COUNT: Final[int] = 2

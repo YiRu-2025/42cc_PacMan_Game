@@ -255,7 +255,7 @@ class Renderer:
         for top in range(0, height, PAPER_TILE_SIZE):
             for left in range(0, width, PAPER_TILE_SIZE):
                 if not self._gfx.draw_sprite(
-                    path, left, top, PAPER_TILE_SIZE, PAPER_TILE_SIZE
+                    path, left, top, PAPER_TILE_SIZE
                 ):
                     return
 
@@ -281,7 +281,7 @@ class Renderer:
             and floor_path is not None
             and paper_path is not None
             and not self._gfx.has_sprite(floor_path, self._cell)
-            and self._gfx.has_sprite(paper_path, PAPER_TILE_SIZE, PAPER_TILE_SIZE)
+            and self._gfx.has_sprite(paper_path, PAPER_TILE_SIZE)
         )
         for y in range(grid.height):
             for x in range(grid.width):

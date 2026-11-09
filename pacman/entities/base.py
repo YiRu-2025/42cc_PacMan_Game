@@ -1,6 +1,6 @@
 """The base of entity: Direction, Entity, Update"""
 from abc import ABC, abstractmethod
-from pacman.maze_loader_2 import Cell, Grid
+from pacman.maze_loader import Cell, Grid
 from pacman.constants import Direction
 from pacman.level import Level
 from typing import Any

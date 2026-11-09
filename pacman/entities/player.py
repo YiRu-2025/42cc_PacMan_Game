@@ -8,7 +8,7 @@
     check if eat the gums
 """
 from pacman.entities.base import Entity
-from pacman.maze_loader_2 import Cell
+from pacman.maze_loader import Cell
 from pacman.constants import Direction
 from pacman.level import Level, Pickup
 

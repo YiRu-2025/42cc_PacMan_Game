@@ -16,18 +16,18 @@ class CheatMode(Enum):
     SPEED = "speed"
 
 
-Cheat_KEYS: dict[str, tuple[CheatMode, str]] = {
-    "1": (CheatMode.SKIP, "1: skip level (win it immediately)"),
-    "2": (CheatMode.INVINCIBLE, "2: toggle invincibility"),
-    "3": (CheatMode.FREEZE, "3: toggle ghost freeze"),
-    "4": (CheatMode.LIFE, "4: add one life"),
-    "5": (CheatMode.SPEED, "5: toggle speed boost"),
+CHEAT_ACTIONS: dict[str, CheatMode] = {
+    "1": CheatMode.SKIP,
+    "2": CheatMode.INVINCIBLE,
+    "3": CheatMode.FREEZE,
+    "4": CheatMode.LIFE,
+    "5": CheatMode.SPEED,
 }
 
 
 @dataclass
 class Cheat:
-    enabled: bool = False
+    enabled: bool = True
     invincible: bool = False
     freeze: bool = False
     speed: bool = False
@@ -58,9 +58,9 @@ class Cheat:
             ture if cheat mode is on and character is a cheat key,
             so the caller knows the key was consumed.
         """
-        if not self.enabled or character not in Cheat_KEYS:
+        if not self.enabled or character not in CHEAT_ACTIONS:
             return False
-        cheat = Cheat_KEYS[character][0]
+        cheat = CHEAT_ACTIONS[character]
         if cheat is CheatMode.SKIP:
             self._skip = True
         elif cheat is CheatMode.LIFE:

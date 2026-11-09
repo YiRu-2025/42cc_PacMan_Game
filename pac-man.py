@@ -1,15 +1,18 @@
+"""Entry point: python3 pac-man.py config.json
 
-import pacman
+Only checks the number of arguments, then hands over to pacman.app.
+The file is called pac-man.py (not pacman.py) so it cannot shadow the
+``pacman`` package.
+"""
+
 import sys
 
+from pacman.app import main
 
-def main() -> None:
-    if sys.argv != 2:
-        print("wrong usage. Should be python3 pac-man.py config.json")
-        sys.exit
-    filename = sys.argv[1]
-    if not filename.endswith(".json"):
-        print("wrong format for configuration, must be a json file.")
-        sys.exit
-    pacman.config
-    # 逻辑先写到了usage这里 tutorial 5.1, 需要检查是否符合第二条要求
+USAGE = "usage: python3 pac-man.py <config.json>"
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print(USAGE, file=sys.stderr)
+        sys.exit(1)
+    main(sys.argv[1])

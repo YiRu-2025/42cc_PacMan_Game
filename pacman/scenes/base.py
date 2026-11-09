@@ -16,9 +16,8 @@ from typing import Callable
 
 from pacman.config import Config
 from pacman.constants import FALLBACK_COLORS, Layer
-from gfx.gfx import Event, EventType, Gfx, Key
+from pacman.gfx import Event, EventType, Gfx, Key, Renderer
 from pacman.highscores import Highscores
-from gfx.renderer import Renderer
 
 
 @dataclass(frozen=True)
@@ -66,6 +65,7 @@ class Pop(Transition):
     Popping the last scene ends the game, which is what makes "back" work
     all the way out of the main menu.
     """
+    count: int = 1
 
 
 @dataclass(frozen=True)
@@ -189,7 +189,8 @@ class MenuScene(Scene):
     item_size: int = 34
     line_height: int = 48
 
-    def __init__(self, context: Context, title: str, items: list[MenuItem]) -> None:
+    def __init__(self, context: Context, title: str,
+                 items: list[MenuItem]) -> None:
         """Build a menu."""
         super().__init__(context)
         self.title = title
@@ -245,3 +246,10 @@ class MenuScene(Scene):
                 self.item_size,
                 text if index == self.cursor else dim,
             )
+
+    def content_bounds(self) -> tuple[int, int]:
+        """Return (top, height) of the title plus the item list."""
+        _, height = self.context.gfx.screen_size()
+        block = len(self.items) * self.line_height
+        top = max(self.title_size * 2, (height - block) // 2)
+        return top - self.title_size * 2, self.title_size * 2 + block

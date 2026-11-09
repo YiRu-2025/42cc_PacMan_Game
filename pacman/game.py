@@ -68,7 +68,7 @@ class Game:
 
         Args:
             cfg: Validated configuration.
-            cheats: Shared cheat state; a fresh disabled one if omitted.
+            cheat: Shared cheat state; a fresh disabled one if omitted.
             loader_fac: Builds a loader for a given (width, height).
                 A loader has a fixed size and levels differ, so one is
                 created per level. Tests inject a fake generator here.
@@ -172,8 +172,8 @@ class Game:
         if self.phase is not Phase.PLAYING:
             return
         dt = min(dt, MAX_FRAME_DT)
-        self._lives += self.cheats.comsume_lives()
-        if self.cheats.comsume_skip():
+        self._lives += self.cheat.consume_lives()
+        if self.cheat.consume_skip():
             self._next_level()
             return
         if self.stun > 0:
@@ -193,8 +193,8 @@ class Game:
 
     def _update_player(self, dt: float) -> None:
         """move the player, turn eaten pickups into score and fear"""
-        boost = CHEAT_SPEED_MULTIPLIER if self.cheats.speed else 1.0
-        self.player.speed - PLAYER_STEPS_PER_SECOND * boost
+        boost = CHEAT_SPEED_MULTIPLIER if self.cheat.speed else 1.0
+        self.player.speed = PLAYER_STEPS_PER_SECOND * boost
         for pkp in self.player.update(dt, self.level):
             if pkp is Pickup.PACGUM:
                 self._add_score(self.cfg.points_per_pacgum)
@@ -209,7 +209,7 @@ class Game:
         One BFS from the player is shared by all ghosts: chasing picks the
         neighbour with the smallest distance, fleeing the largest.
         """
-        if self.cheats.freeze:
+        if self.cheat.freeze:
             return       # frozen ghosts also pause their own timers
         dist = distance_map(self.level.grid, self.player.cell)
         for ghost in self.ghosts:
@@ -234,14 +234,14 @@ class Game:
             if ghost.state is GhostState.FRIGHTENED:
                 self._add_scroe(self.cfg.points_per_ghost)
                 ghost.eaten()
-            elif not (self.cheats.invincible or self.grace > 0):
+            elif not (self.cheat.invincible or self.grace > 0):
                 self._lose_life()
                 return
 
     # ----
     # failure path
     # ----
-    def _lost_lift(self) -> None:
+    def _lost_live(self) -> None:
         """Take a life: respawn in the same maze, or end the run."""
         self._lives -= 1
         if self._lives <= 0:

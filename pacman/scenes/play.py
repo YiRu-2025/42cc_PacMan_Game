@@ -45,24 +45,6 @@ GHOST_STATE_NAMES: dict[GhostState, str] = {
     GhostState.FRIGHTENED: "frightened",
     GhostState.DEAD: "dead",
 }
-"""GhostState to the sprite-state strings the renderer expects."""
-
-CHEAT_TOGGLES: dict[str, str] = {
-    "i": "invincible",
-    "f": "freeze",
-    "b": "speed",
-}
-"""Cheat keys that flip a flag on the shared Cheat object."""
-
-CHEAT_CALLS: dict[str, str] = {
-    "n": "request_skip",
-    "l": "grant_life",
-}
-"""Cheat keys that queue a one-off request the Game consumes on its next
-tick. The names here are the interface ``pacman.cheat`` must provide; the
-keys themselves come from ``constants.CHEAT_BINDINGS``, which the
-instructions screen also reads."""
-
 
 # --------------------------------------------------------------------------
 # Views: the simulation's state in the shape the renderer asked for.
@@ -130,13 +112,7 @@ class PlayScene(Scene):
         self._laid_out = -1
 
     # ----------------------------------------------------------------- input
-
     def handle_event(self, event: Event) -> Transition | None:
-        """Steer the player, pause, or trigger a cheat.
-
-            event: The input event.
-            A ``Push`` of the pause overlay on escape, otherwise None.
-        """
         if event.type is not EventType.KEY_DOWN:
             return None
         if event.key is Key.ESCAPE:
@@ -146,30 +122,8 @@ class PlayScene(Scene):
             self.game.player.set_direction(direction)
             return None
         if event.char:
-            self._cheat(event.char.lower())
+            self.game.cheat.handle_key(event.char)
         return None
-
-    def _cheat(self, char: str) -> None:
-        """Apply a cheat key, ignoring any the Cheat object does not offer.
-
-        Cheats are a review aid, so a missing or half-written cheat module
-        must never stop the game. Unknown keys and unknown attributes are
-        silently ignored.
-
-            char: The character typed, already lowercased.
-        """
-        cheat = getattr(self.game, "cheat", None)
-        if cheat is None:
-            return
-        flag = CHEAT_TOGGLES.get(char)
-        if flag is not None and hasattr(cheat, flag):
-            setattr(cheat, flag, not getattr(cheat, flag))
-            return
-        call = CHEAT_CALLS.get(char)
-        if call is not None:
-            method = getattr(cheat, call, None)
-            if callable(method):
-                method()
 
     # ------------------------------------------------------------- the frame
 

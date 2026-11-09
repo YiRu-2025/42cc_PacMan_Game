@@ -8,9 +8,10 @@ use one table for recording the distance
 from enum import Enum
 from typing import Any
 from pacman.entities.base import Entity
-from pacman.maze_loader_2 import Cell, Grid
+from pacman.maze_loader import Cell, Grid
 from pacman.level import Level
 from collections import deque
+from pacman.constants import Direction
 
 
 class GhostState(Enum):
@@ -75,3 +76,13 @@ class Ghost(Entity):
         if self.state is GhostState.DEAD:  # still dead: stay put
             return []
         return super().update(dt, level, *ctx)
+
+    def step(self, level: Level, dist: dict[Cell, int]) -> None:
+        options = level.grid.neighbours(*self.cell)
+        if not options:
+            return
+        pick = max if self.state is GhostState.FRIGHTENED else min
+        far = 10**9
+        target = pick(options, key=lambda c: dist.get(c, far))
+        d = Direction((target[0] - self.cell[0], target[1] - self.cell[1]))
+        self.move(d)

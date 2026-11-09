@@ -111,7 +111,8 @@ def _scale_nearest(source: pygame.Surface, size: int) -> pygame.Surface:
 class Gfx:
     """Window, drawing primitives, input and frame pacing."""
 
-    def __init__(self, width: int, height: int, title: str = GAME_TITLE) -> None:
+    def __init__(self, width: int, height: int,
+                 title: str = GAME_TITLE) -> None:
         """Open the window.
 
         Args:
@@ -156,7 +157,8 @@ class Gfx:
 
     # --------------------------------------------------------------- drawing
 
-    def fill_rect(self, color: Color, x: int, y: int, width: int, height: int) -> None:
+    def fill_rect(self, color: Color, x: int, y: int,
+                  width: int, height: int) -> None:
         """Fill a rectangle with a flat colour.
 
         Implemented as an offscreen surface that is filled once and then
@@ -245,7 +247,8 @@ class Gfx:
             self._fonts[size] = font
         return font
 
-    def draw_text(self, text: str, x: int, y: int, size: int, color: Color) -> None:
+    def draw_text(self, text: str, x: int, y: int,
+                  size: int, color: Color) -> None:
         """Draw a line of text with its top-left corner at ``(x, y)``.
 
         Args:
