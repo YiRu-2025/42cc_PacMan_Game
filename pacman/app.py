@@ -81,7 +81,7 @@ class App:
 
     def apply(self, transition: Transition | None) -> None:
         """Carry out what a scene asked for.
-            transition: The scene's answer, or None to change nothing.
+        transition: The scene's answer, or None to change nothing.
         """
         if transition is None:
             return
@@ -175,22 +175,27 @@ def _start_game(context: Context) -> Scene:
     """
     factory = load_optional("pacman.scenes.play", "PlayScene")
     if factory is None:
-        return MessageScene(context, "Not playable yet",
-                            "pacman/scenes/play.py is missing")
+        return MessageScene(
+            context, "Not playable yet", "pacman/scenes/play.py is missing"
+        )
     return factory(context)
 
 
 def _finish_game(context: Context, result: GameResult) -> Scene:
     """Build the scene that follows a finished game.
-        context: The shared state.
-        result: What the session produced.
-        The name prompt, or a message scene if it is not written yet.
+    context: The shared state.
+    result: What the session produced.
+    The name prompt, or a message scene if it is not written yet.
     """
     factory = load_optional("pacman.scenes.name_entry", "NameEntryScene")
     if factory is None:
         verdict = "You win" if result.won else "Game over"
-        return MessageScene(context, verdict, f"Score {result.score}",
-                            f"Reached level {result.level_reached}")
+        return MessageScene(
+            context,
+            verdict,
+            f"Score {result.score}",
+            f"Reached level {result.level_reached}",
+        )
     return factory(context, result)
 
 

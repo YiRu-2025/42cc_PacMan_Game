@@ -120,8 +120,7 @@ class GfxError(Exception):
     """Raised when the display itself cannot be created."""
 
 
-def _resample(source: pygame.Surface, width: int,
-              height: int) -> pygame.Surface:
+def _resample(source: pygame.Surface, width: int, height: int) -> pygame.Surface:
     """Resize a sprite with a nearest-neighbour loop.
 
     ``pygame.transform.scale`` has no MLX counterpart, so the resampling is
@@ -150,8 +149,7 @@ def _resample(source: pygame.Surface, width: int,
     return out
 
 
-def _transform(source: pygame.Surface, turns: int,
-               flip_x: bool) -> pygame.Surface:
+def _transform(source: pygame.Surface, turns: int, flip_x: bool) -> pygame.Surface:
     """Rotate by quarter turns and optionally mirror, without pygame.
 
     ``pygame.transform.rotate`` and ``.flip`` have no MLX counterpart, but a
@@ -192,15 +190,14 @@ def _transform(source: pygame.Surface, turns: int,
 class Gfx:
     """Window, drawing primitives, input and frame pacing."""
 
-    def __init__(self, width: int, height: int,
-                 title: str = GAME_TITLE) -> None:
+    def __init__(self, width: int, height: int, title: str = GAME_TITLE) -> None:
         """Open the window.
 
-            width: Window width in pixels.
-            height: Window height in pixels.
-            title: Window caption.
+        width: Window width in pixels.
+        height: Window height in pixels.
+        title: Window caption.
 
-            GfxError: If pygame cannot initialise a display.
+        GfxError: If pygame cannot initialise a display.
         """
         try:
             # Only the two subsystems in use. pygame.init() would also start
@@ -228,15 +225,14 @@ class Gfx:
     def resize(self, width: int, height: int) -> None:
         """Change the window size, keeping every cache.
 
-            width: New width in pixels.
-            height: New height in pixels.
+        width: New width in pixels.
+        height: New height in pixels.
         """
         self._screen = pygame.display.set_mode((width, height))
 
     # --------------------------------------------------------------- drawing
 
-    def fill_rect(self, color: Color, x: int, y: int,
-                  width: int, height: int) -> None:
+    def fill_rect(self, color: Color, x: int, y: int, width: int, height: int) -> None:
         """Fill a rectangle with a flat colour.
 
         Implemented as an offscreen surface that is filled once and then
@@ -259,9 +255,16 @@ class Gfx:
             self._fills[key] = surface
         self._screen.blit(surface, (x, y))
 
-    def draw_sprite(self, rel_path: str, x: int, y: int, width: int,
-                    height: int | None = None, turns: int = 0,
-                    flip_x: bool = False) -> bool:
+    def draw_sprite(
+        self,
+        rel_path: str,
+        x: int,
+        y: int,
+        width: int,
+        height: int | None = None,
+        turns: int = 0,
+        flip_x: bool = False,
+    ) -> bool:
         """Draw a sprite, reporting whether it was available.
 
         The caller never holds an image object: it asks for a path and finds
@@ -288,8 +291,7 @@ class Gfx:
         self._screen.blit(surface, (x, y))
         return True
 
-    def has_sprite(self, rel_path: str, width: int,
-                   height: int | None = None) -> bool:
+    def has_sprite(self, rel_path: str, width: int, height: int | None = None) -> bool:
         """Return True if a sprite file exists and can be drawn.
 
         Lets the renderer choose between art and placeholder paths once per
@@ -301,20 +303,21 @@ class Gfx:
         """
         return self._get(rel_path, width, height, 0, False) is not None
 
-    def _get(self, rel_path: str, width: int, height: int | None,
-             turns: int, flip_x: bool) -> pygame.Surface | None:
+    def _get(
+        self, rel_path: str, width: int, height: int | None, turns: int, flip_x: bool
+    ) -> pygame.Surface | None:
         """Return a cached, transformed, resized sprite, or None."""
         tall = width if height is None else height
         if width < 1 or tall < 1:
             return None
         key: SpriteKey = (rel_path, width, tall, turns % 4, flip_x)
         if key not in self._sprites:
-            self._sprites[key] = self._load(rel_path, width, tall,
-                                            turns, flip_x)
+            self._sprites[key] = self._load(rel_path, width, tall, turns, flip_x)
         return self._sprites[key]
 
-    def _load(self, rel_path: str, width: int, height: int,
-              turns: int, flip_x: bool) -> pygame.Surface | None:
+    def _load(
+        self, rel_path: str, width: int, height: int, turns: int, flip_x: bool
+    ) -> pygame.Surface | None:
         """Load, transform and scale one sprite, or None if unavailable."""
         full = os.path.join(ASSETS_DIR, rel_path)
         if not os.path.isfile(full):
@@ -363,15 +366,14 @@ class Gfx:
                 pass
         return pygame.font.Font(None, size)
 
-    def draw_text(self, text: str, x: int, y: int,
-                  size: int, color: Color) -> None:
+    def draw_text(self, text: str, x: int, y: int, size: int, color: Color) -> None:
         """Draw a line of text with its top-left corner at ``(x, y)``.
 
-            text: The string to draw; an empty string draws nothing.
-            x: Left edge in pixels.
-            y: Top edge in pixels.
-            size: Font size in pixels.
-            color: RGB triple.
+        text: The string to draw; an empty string draws nothing.
+        x: Left edge in pixels.
+        y: Top edge in pixels.
+        size: Font size in pixels.
+        color: RGB triple.
         """
         if not text:
             return
@@ -394,7 +396,7 @@ class Gfx:
     def poll_events(self) -> list[Event]:
         """Drain the input queue, translated out of pygame's vocabulary.
 
-            The events since the previous call, oldest first.
+        The events since the previous call, oldest first.
         """
         events: list[Event] = []
         for raw in pygame.event.get():

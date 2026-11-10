@@ -7,6 +7,7 @@ fall out naturally:
 * one level   - level (maze + pickups), time_left    (rebuilt per level)
 * one life    - player, ghosts, grace, stun          (rebuilt on respawn)
 """
+
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -31,6 +32,7 @@ from pacman.maze_loader import Grid, MazeLoader
 
 class Phase(Enum):
     """overall state of a run"""
+
     PLAYING = "playing"
     WON = "won"
     LOST = "lost"
@@ -39,6 +41,7 @@ class Phase(Enum):
 @dataclass(frozen=True)
 class GameResult:
     """outcome of a run, handed to the name-entry scene."""
+
     score: int
     level: int
     won: bool
@@ -61,25 +64,28 @@ class Game:
         stun: Seconds left of the pause after a death (world frozen).
     """
 
-    def __init__(self, cfg: Config, cheat: Cheat | None = None,
-                 loader_fac: Callable[[int, int], MazeLoader] = MazeLoader
-                 ) -> None:
+    def __init__(
+        self,
+        cfg: Config,
+        cheat: Cheat | None = None,
+        loader_fac: Callable[[int, int], MazeLoader] = MazeLoader,
+    ) -> None:
         """Start a run at level 1.
 
-            cfg: Validated configuration.
-            cheat: Shared cheat state; a fresh disabled one if omitted.
-            loader_fac: Builds a loader for a given (width, height).
-                A loader has a fixed size and levels differ, so one is
-                created per level. Tests inject a fake generator here.
-                
-            MazeError: If the maze generator fails. app.py catches it,
-                because only it knows where to go back to.
+        cfg: Validated configuration.
+        cheat: Shared cheat state; a fresh disabled one if omitted.
+        loader_fac: Builds a loader for a given (width, height).
+            A loader has a fixed size and levels differ, so one is
+            created per level. Tests inject a fake generator here.
+
+        MazeError: If the maze generator fails. app.py catches it,
+            because only it knows where to go back to.
         """
         self.cfg = cfg
         self.cheat = cheat if cheat is not None else Cheat()
         self._make_loader = loader_fac
         self.phase = Phase.PLAYING
-        self.level_index = 0              # becomes 1 on the first load
+        self.level_index = 0  # becomes 1 on the first load
         self._score = 0
         self._lives = cfg.lives
 
@@ -109,8 +115,7 @@ class Game:
     @property
     def result(self) -> GameResult:
         """snapshot of the run. meaninful once phase is not PLAYING"""
-        return GameResult(self._score, self.level_index,
-                          self.phase is Phase.WON)
+        return GameResult(self._score, self.level_index, self.phase is Phase.WON)
 
     def _add_score(self, points: int) -> None:
         assert points >= 0, "score must never decrease"
@@ -140,10 +145,15 @@ class Game:
     def _spawn(self) -> None:
         """(re)create the player and ghosts at their spawn points."""
         self.player = Player(self.level.player, PLAYER_STEPS_PER_SECOND)
-        self.ghosts = [Ghost(cell, GHOST_STEPS_PER_SECOND,
-                             FRIGHTENED_SPEED_FACTOR,
-                             GHOST_RESPAWN_DELAY
-                             ) for cell in self.level.ghosts]
+        self.ghosts = [
+            Ghost(
+                cell,
+                GHOST_STEPS_PER_SECOND,
+                FRIGHTENED_SPEED_FACTOR,
+                GHOST_RESPAWN_DELAY,
+            )
+            for cell in self.level.ghosts
+        ]
         self.grace = RESPAWN_GRACE
 
     # -----
@@ -207,7 +217,7 @@ class Game:
         neighbour with the smallest distance, fleeing the largest.
         """
         if self.cheat.freeze:
-            return       # frozen ghosts also pause their own timers
+            return  # frozen ghosts also pause their own timers
         dist = distance_map(self.level.grid, self.player.cell)
         for ghost in self.ghosts:
             ghost.update(dt, self.level, dist)
@@ -224,15 +234,14 @@ class Game:
             if ghost.state is GhostState.DEAD:
                 continue
             same = ghost.cell == player.cell
-            swapped = (ghost.cell == player.prev
-                       and ghost.prev == player.cell)
+            swapped = ghost.cell == player.prev and ghost.prev == player.cell
             if not (same or swapped):
                 continue
             if ghost.state is GhostState.FRIGHTENED:
                 self._add_score(self.cfg.points_per_ghost)
                 ghost.eaten()
             elif not (self.cheat.invincible or self.grace > 0):
-                self._lose_live()
+                self._lost_live()
                 return
 
     # ----

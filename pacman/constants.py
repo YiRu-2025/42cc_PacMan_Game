@@ -123,13 +123,13 @@ WINDOW_MARGIN: Final[int] = 16
 def cell_size_for(width: int, height: int) -> int:
     """Return the largest readable cell size that fits a maze on screen.
 
-        width: Maze width, in cells.
-        height: Maze height, in cells.
+    width: Maze width, in cells.
+    height: Maze height, in cells.
 
-        A cell size in pixels, between MIN_CELL_SIZE and TARGET_CELL_SIZE.
-        A maze too large to fit even at MIN_CELL_SIZE still returns
-        MIN_CELL_SIZE; the caller is expected to scroll or letterbox rather
-        than refuse to draw.
+    A cell size in pixels, between MIN_CELL_SIZE and TARGET_CELL_SIZE.
+    A maze too large to fit even at MIN_CELL_SIZE still returns
+    MIN_CELL_SIZE; the caller is expected to scroll or letterbox rather
+    than refuse to draw.
     """
     if width <= 0 or height <= 0:
         return TARGET_CELL_SIZE
@@ -147,9 +147,7 @@ HIGHSCORE_LIMIT: Final[int] = 10
 NAME_MAX_LENGTH: Final[int] = 10
 
 NAME_CHARSET: Final[frozenset[str]] = frozenset(
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    "abcdefghijklmnopqrstuvwxyz"
-    "0123456789 "
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ" "abcdefghijklmnopqrstuvwxyz" "0123456789 "
 )
 """Characters allowed in a player name.
 
@@ -404,9 +402,9 @@ def player_sprite(facing: Direction, frame: int) -> str:
 def player_base_sprite(frame: int) -> str:
     """Return the path for a player frame drawn facing east.
 
-        frame: Frame index, wrapped into ``range(PLAYER_FRAME_COUNT)``.
+    frame: Frame index, wrapped into ``range(PLAYER_FRAME_COUNT)``.
 
-        A path such as ``player/player_0.png``.
+    A path such as ``player/player_0.png``.
     """
     return f"player/player_{frame % PLAYER_FRAME_COUNT}.png"
 
@@ -439,16 +437,15 @@ def ghost_sprite(index: int, frame: int, state: str = "normal") -> str:
 
         A path such as ``ghosts/ghost_2_frightened_1.png``.
     """
-    return (f"ghosts/ghost_{index}_{state}_"
-            f"{frame % GHOST_FRAME_COUNT}.png")
+    return f"ghosts/ghost_{index}_{state}_" f"{frame % GHOST_FRAME_COUNT}.png"
 
 
 def ghost_body_sprite(frame: int) -> str:
     """Return the path for the body all four ghosts share.
 
-        frame: Frame index, wrapped into ``range(GHOST_FRAME_COUNT)``.
+    frame: Frame index, wrapped into ``range(GHOST_FRAME_COUNT)``.
 
-        A path such as ``ghosts/body_1.png``.
+    A path such as ``ghosts/body_1.png``.
     """
     return f"ghosts/body_{frame % GHOST_FRAME_COUNT}.png"
 
@@ -470,10 +467,10 @@ def ghost_hat_sprite(index: int) -> str:
 def ghost_state_sprite(state: str, frame: int) -> str:
     """Return the path for the frightened or dead form shared by all ghosts.
 
-        state: ``"frightened"`` or ``"dead"``.
-        frame: Frame index, wrapped into ``range(GHOST_FRAME_COUNT)``.
+    state: ``"frightened"`` or ``"dead"``.
+    frame: Frame index, wrapped into ``range(GHOST_FRAME_COUNT)``.
 
-        A path such as ``ghosts/frightened_0.png``.
+    A path such as ``ghosts/frightened_0.png``.
     """
     return f"ghosts/{state}_{frame % GHOST_FRAME_COUNT}.png"
 
@@ -481,9 +478,9 @@ def ghost_state_sprite(state: str, frame: int) -> str:
 def digit_sprite(character: str) -> str:
     """Return the path for one HUD glyph drawn as an image.
 
-        character: A single character to render.
+    character: A single character to render.
 
-        A path such as ``ui/glyph_7.png``. Glyphs are optional; when the
-        file is missing, gfx.py draws the character with a font instead.
+    A path such as ``ui/glyph_7.png``. Glyphs are optional; when the
+    file is missing, gfx.py draws the character with a font instead.
     """
     return f"ui/glyph_{character.lower()}.png"
