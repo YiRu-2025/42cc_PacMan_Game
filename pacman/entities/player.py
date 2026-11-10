@@ -24,9 +24,9 @@ class Player(Entity):
 
     def step(self, level: Level) -> Pickup:
         grid = level.grid
-        if self.can_move(grid, self.buffered):
+        if self.buffered is not None and self.can_move(grid, self.buffered):
             self.move(self.buffered)
-        elif self.can_move(grid, self.direction):
+        elif self.direction is not None and self.can_move(grid, self.direction):  # noqa
             self.move(self.direction)
         else:
             self.direction = None  # blocked: stay at current place
