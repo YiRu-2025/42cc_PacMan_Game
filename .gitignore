@@ -1,0 +1,41 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Type checker / linter / test caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# PyInstaller output (pacman.spec itself IS tracked)
+build/
+dist/
+
+# Packaging metadata
+*.egg-info/
+.eggs/
+
+# Runtime data written by the game
+highscore.json
+highscores.json
+
+# The assigned wheel is committed; its unpacked copy is not.
+vendor/mazegenerator-*/
+
+# Editors and OS noise
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# NOTE: vendor/*.whl is deliberately NOT ignored. The assigned
+# mazegenerator wheel is committed so that `make install` reproduces the
+# exact environment during peer review.
