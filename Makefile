@@ -1,7 +1,6 @@
 PYTHON  := python3
 ENTRY   := pac-man.py
 CONFIG  := config.json
-# 貌似wildcard不建议用，容易有bug，之前piscine时候踩过坑
 VENDOR  := $(wildcard vendor/mazegenerator-*.whl)
 
 MYPY_FLAGS := --warn-return-any --warn-unused-ignores \
