@@ -2,265 +2,229 @@
 
 This module is the only one that knows the whole program: it reads the
 configuration, opens the window, loads the highscore table, and runs the
-scene stack until it empties. It is also the only place where the menu, the
-gameplay scene and the name prompt meet, so none of them import each other.
+scene stack until it empties. It is also the only place where the menu and
+the gameplay package meet, through the two callables it puts in the
+``Context``, so neither of those imports the other.
 
 Start-up order matters. The window is sized for the largest level in the
-configuration before any scene exists, so it never changes size mid-game;
-and the highscore table is loaded before the menu appears, so the menu can
-show the best score immediately.
+configuration before any scene exists, so the window never changes size
+mid-game; and the highscore table is loaded before the menu appears, so the
+menu can show it immediately.
 """
 
 import sys
-from pathlib import Path
 
 from pacman.config import Config, load_config
 from pacman.constants import (
+    GAME_TITLE,
     HUD_HEIGHT,
-    MAX_WINDOW_HEIGHT,
-    MAX_WINDOW_WIDTH,
+    MAX_FRAME_DT,
+    MIN_CELL_SIZE,
     cell_size_for,
 )
-from pacman.gfx import EventType, Gfx, GfxError, Renderer
+from pacman.gfx import EventType, Gfx, GfxError
 from pacman.highscores import Highscores
-from pacman.maze_loader import MazeError
+from pacman.gfx import Renderer
 from pacman.scenes.base import (
     Context,
     Finish,
+    GameResult,
     Pop,
     Push,
     Quit,
     Replace,
     Scene,
     Transition,
+    load_optional,
 )
 from pacman.scenes.menu import MainMenuScene
 from pacman.scenes.message import MessageScene
-from pacman.scenes.name_entry import NameEntryScene
-from pacman.scenes.play import PlayScene
-
-MIN_WINDOW_WIDTH: int = 640
-MIN_WINDOW_HEIGHT: int = 520
-"""Menus and the name prompt need this much room, whatever the maze."""
-
-
-# --------------------------------------------------------------------------
-# Helpers
-# --------------------------------------------------------------------------
 
 
 def window_size(config: Config) -> tuple[int, int]:
-    """Return a window size that fits the largest configured level.
+    """Return a window that fits every level in the configuration.
 
-    Args:
+    Levels may differ in size, so the window is sized once for the largest
+    of them and smaller mazes are centred inside it. Resizing between levels
+    would flicker and, on some window managers, move the window.
         config: The validated configuration.
-
-    Returns:
-        ``(width, height)`` in pixels, never below the menu minimum and
-        never above the maximum window size.
+        ``(width, height)`` in pixels, including the HUD band.
     """
-    width = MIN_WINDOW_WIDTH
-    height = MIN_WINDOW_HEIGHT
+    width = height = 0
     for level in config.levels:
         cell = cell_size_for(level.width, level.height)
         width = max(width, level.width * cell)
-        height = max(height, level.height * cell + HUD_HEIGHT)
-    return min(width, MAX_WINDOW_WIDTH), min(height, MAX_WINDOW_HEIGHT)
+        height = max(height, level.height * cell)
+    if width < 1 or height < 1:
+        width = height = MIN_CELL_SIZE * 10
+    return width, height + HUD_HEIGHT
 
 
-def data_path(name: str) -> Path:
-    """Return where a writable file (the highscores) should live.
+class App:
+    """Owns the scene stack and the frame loop."""
 
-    A PyInstaller build unpacks read-only resources into a temporary
-    folder, which is deleted on exit, so writable data goes next to the
-    executable instead. Run from source, it is simply relative to the
-    current directory.
-
-    Args:
-        name: File name from the configuration.
-    """
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent / name
-    return Path(name)
-
-
-def start_game(context: Context) -> Scene:
-    """Build a fresh gameplay scene, or a notice if the maze fails.
-
-    This is the callable stored in ``Context.start_game``. ``PlayScene``
-    generates its first maze in its constructor, so a generator failure
-    surfaces here, and only the application knows what to show instead.
-
-    Args:
-        context: The shared state.
-    """
-    try:
-        return PlayScene(context)
-    except MazeError as exc:
-        return MessageScene(context, "Cannot start", str(exc))
-
-
-# --------------------------------------------------------------------------
-# Scene stack
-# --------------------------------------------------------------------------
-
-
-class SceneManager:
-    """The stack of screens, and the code that obeys ``Transition``s.
-
-    The top scene receives input and ticks. Scenes below it are only drawn,
-    and only when everything above them is transparent (the pause overlay).
-    """
-
-    def __init__(self, context: Context) -> None:
-        """Create an empty stack.
+    def __init__(self, context: Context, first: Scene) -> None:
+        """Prepare the loop.
 
         Args:
-            context: The shared state, needed to build the result screen.
+            context: The shared state handed to every scene.
+            first: The scene to show on start-up.
         """
         self.context = context
-        self.stack: list[Scene] = []
+        self._stack: list[Scene] = [first]
+        first.on_enter()
 
     @property
-    def top(self) -> Scene:
-        """The scene that currently owns input."""
-        return self.stack[-1]
-
-    # ------------------------------------------------------------ primitives
-
-    def push(self, scene: Scene) -> None:
-        """Put a scene on top, keeping the current one underneath."""
-        if self.stack:
-            self.top.on_exit()
-        self.stack.append(scene)
-        scene.on_enter()
-
-    def pop(self, count: int = 1) -> None:
-        """Remove ``count`` scenes from the top.
-
-        Popping more scenes than exist simply empties the stack, which ends
-        the program.
-        """
-        for _ in range(max(count, 1)):
-            if not self.stack:
-                break
-            self.stack.pop().on_exit()
-        if self.stack:
-            self.top.on_enter()
-
-    def replace(self, scene: Scene) -> None:
-        """Swap the top scene for another, at the same depth."""
-        if self.stack:
-            self.stack.pop().on_exit()
-        self.stack.append(scene)
-        scene.on_enter()
-
-    def clear(self) -> None:
-        """Remove every scene, which ends the main loop."""
-        while self.stack:
-            self.stack.pop().on_exit()
-
-    # ----------------------------------------------------------- transitions
+    def current(self) -> Scene | None:
+        """The scene receiving input, or None once the stack is empty."""
+        return self._stack[-1] if self._stack else None
 
     def apply(self, transition: Transition | None) -> None:
-        """Carry out whatever a scene asked for.
-
-        Args:
-            transition: The scene's answer, or None for "stay as you are".
+        """Carry out what a scene asked for.
+            transition: The scene's answer, or None to change nothing.
         """
         if transition is None:
             return
+        if isinstance(transition, Quit):
+            while self._stack:
+                self._stack.pop().on_exit()
+            return
         if isinstance(transition, Push):
-            self.push(transition.scene)
-        elif isinstance(transition, Replace):
-            self.replace(transition.scene)
-        elif isinstance(transition, Pop):
-            self.pop(transition.count)
-        elif isinstance(transition, Finish):
-            # Replace, never push: dismissing the result must return to the
-            # menu, not to a game that has already ended.
-            self.replace(NameEntryScene(self.context, transition.result))
-        elif isinstance(transition, Quit):
-            self.clear()
+            if self._stack:
+                self._stack[-1].on_exit()
+            self._stack.append(transition.scene)
+            transition.scene.on_enter()
+            return
+        if isinstance(transition, Finish):
+            if self._stack:
+                self._stack.pop().on_exit()
+            follow = _finish_game(self.context, transition.result)
+            self._stack.append(follow)
+            follow.on_enter()
+            return
+        if isinstance(transition, Replace):
+            if self._stack:
+                self._stack.pop().on_exit()
+            self._stack.append(transition.scene)
+            transition.scene.on_enter()
+            return
+        if isinstance(transition, Pop):
+            for _ in range(max(1, transition.count)):
+                if not self._stack:
+                    break
+                self._stack.pop().on_exit()
+            if self._stack:
+                self._stack[-1].on_enter()
 
-    # --------------------------------------------------------------- drawing
+    def step(self, dt: float) -> bool:
+        """Run one frame: input, then logic, then drawing.
 
-    def draw(self) -> None:
-        """Draw the top scene, and any scenes it is an overlay on.
-
-        Walk down from the top while scenes are transparent, then draw
-        from that scene upwards, so a pause overlay lands on a game frame.
+        A transition stops the rest of the frame, so a scene that has just
+        been left never sees the remaining events or gets an extra tick.
+            dt: Seconds since the previous frame.
+            True if the application should keep running.
         """
-        start = len(self.stack) - 1
-        while start > 0 and self.stack[start].transparent:
-            start -= 1
-        for scene in self.stack[start:]:
+        scene = self.current
+        if scene is None:
+            return False
+
+        for event in self.context.gfx.poll_events():
+            if event.type is EventType.QUIT:
+                self.apply(Quit())
+                return False
+            if event.type is not EventType.KEY_DOWN:
+                continue
+            transition = scene.handle_event(event)
+            if transition is not None:
+                self.apply(transition)
+                self._draw()
+                return bool(self._stack)
+
+        transition = scene.update(min(dt, MAX_FRAME_DT))
+        if transition is not None:
+            self.apply(transition)
+        self._draw()
+        return bool(self._stack)
+
+    def _draw(self) -> None:
+        """Draw the stack, starting below any overlays on top."""
+        if not self._stack:
+            return
+        first = len(self._stack) - 1
+        while first > 0 and self._stack[first].transparent:
+            first -= 1
+        for scene in self._stack[first:]:
             scene.draw()
 
+    def run(self) -> None:
+        """Loop until the stack empties or the window closes."""
+        dt = 0.0
+        while self.step(dt):
+            dt = self.context.gfx.present()
+        self.context.gfx.present()
 
-# --------------------------------------------------------------------------
-# Main loop
-# --------------------------------------------------------------------------
 
+def _start_game(context: Context) -> Scene:
+    """Build a gameplay scene.
 
-def run(context: Context) -> None:
-    """Run the scene stack until it is empty or the window is closed.
-
-    Args:
-        context: The shared state, with a window already open.
+    Imported here rather than at module level so that a missing or
+    half-finished gameplay package cannot stop the menus from running, and
+    so that the menu never imports the game.
+        context: The shared state.
+        The gameplay scene, or a message scene explaining what is missing.
     """
-    gfx = context.gfx
-    manager = SceneManager(context)
-    manager.push(MainMenuScene(context))
-    dt = 0.0
-
-    while manager.stack:
-        for event in gfx.poll_events():
-            if not manager.stack:
-                break
-            if event.type is EventType.QUIT:
-                manager.clear()
-                break
-            manager.apply(manager.top.handle_event(event))
-        if not manager.stack:
-            break
-
-        try:
-            manager.apply(manager.top.update(dt))
-        except MazeError as exc:
-            # A later level failed to generate mid-game. Drop the game and
-            # explain, rather than crash; any key returns to the menu.
-            manager.replace(MessageScene(context, "Maze error", str(exc)))
-        if not manager.stack:
-            break
-
-        manager.draw()
-        dt = gfx.present()
+    factory = load_optional("pacman.scenes.play", "PlayScene")
+    if factory is None:
+        return MessageScene(context, "Not playable yet",
+                            "pacman/scenes/play.py is missing")
+    return factory(context)
 
 
-def main(config_path: str) -> None:
-    """Start the game.
+def _finish_game(context: Context, result: GameResult) -> Scene:
+    """Build the scene that follows a finished game.
+        context: The shared state.
+        result: What the session produced.
+        The name prompt, or a message scene if it is not written yet.
+    """
+    factory = load_optional("pacman.scenes.name_entry", "NameEntryScene")
+    if factory is None:
+        verdict = "You win" if result.won else "Game over"
+        return MessageScene(context, verdict, f"Score {result.score}",
+                            f"Reached level {result.level_reached}")
+    return factory(context, result)
 
-    Args:
-        config_path: Path to the JSON configuration file. A missing or
-            broken file is reported and replaced by the defaults.
+
+def run(config_path: str) -> int:
+    """Start the game and run it to completion.
+
+    Every failure is reported as one readable line, never a traceback: the
+    configuration is already forgiving, and the window is the only thing
+    left that can refuse outright.
+
+        config_path: Path to the JSON configuration file.
+        0 on a clean exit, 1 if the game could not start.
     """
     config = load_config(config_path)
-    highscores = Highscores(data_path(config.highscore_filename))
+    highscores = Highscores(config.highscore_filename)
     highscores.load()
+
     width, height = window_size(config)
     try:
-        with Gfx(width, height) as gfx:
-            context = Context(
-                gfx=gfx,
-                renderer=Renderer(gfx),
-                config=config,
-                highscores=highscores,
-                start_game=start_game,
-            )
-            run(context)
+        gfx = Gfx(width, height, GAME_TITLE)
     except GfxError as exc:
         print(f"error: {exc}", file=sys.stderr)
-        sys.exit(1)
-    except KeyboardInterrupt:
-        pass
+        return 1
+
+    try:
+        context = Context(
+            gfx=gfx,
+            renderer=Renderer(gfx),
+            config=config,
+            highscores=highscores,
+            start_game=_start_game,
+        )
+        App(context, MainMenuScene(context)).run()
+    finally:
+        gfx.close()
+        highscores.save()
+    return 0

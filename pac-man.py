@@ -7,7 +7,7 @@ The file is called pac-man.py (not pacman.py) so it cannot shadow the
 
 import sys
 
-from pacman.app import main
+from pacman.app import run
 
 USAGE = "usage: python3 pac-man.py <config.json>"
 
@@ -15,4 +15,4 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         print(USAGE, file=sys.stderr)
         sys.exit(1)
-    main(sys.argv[1])
+        sys.exit(run(sys.argv[1]))

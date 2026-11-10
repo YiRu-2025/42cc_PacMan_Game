@@ -11,7 +11,7 @@ contract with the gameplay modules: anything satisfying them can be drawn,
 which also makes the renderer testable without a running game.
 """
 
-from typing import Final, Protocol, Sequence
+from typing import Callable, Final, Protocol, Sequence
 
 from pacman.constants import (
     FALLBACK_COLORS,
@@ -35,7 +35,7 @@ from pacman.constants import (
     wall_edge_sprite,
     wall_sprite,
 )
-from pacman.gfx import Gfx
+from pacman.gfx.gfx import Gfx
 from pacman.maze_loader import Grid
 
 Cell = tuple[int, int]
@@ -47,10 +47,7 @@ HUD_PADDING: Final[int] = 12
 HUD_TEXT_SIZE: Final[int] = 28
 
 _GHOST_LAYERS: Final[tuple[Layer, ...]] = (
-    Layer.GHOST_0,
-    Layer.GHOST_1,
-    Layer.GHOST_2,
-    Layer.GHOST_3,
+    Layer.GHOST_0, Layer.GHOST_1, Layer.GHOST_2, Layer.GHOST_3,
 )
 
 
@@ -173,10 +170,7 @@ class Renderer:
         below the HUD, so a maze smaller than the window is framed rather
         than pinned to a corner.
 
-        Args:
             grid: The maze about to be drawn.
-
-        Returns:
             The window size, in pixels, that suits this maze. The caller may
             pass it to ``Gfx.resize``; drawing is correct either way, because
             the origin is recomputed from the window actually in use.
@@ -195,12 +189,8 @@ class Renderer:
 
     def cell_rect(self, x: int, y: int) -> tuple[int, int, int]:
         """Return the pixel position and size of one grid cell.
-
-        Args:
             x: Column index.
             y: Row index.
-
-        Returns:
             ``(left, top, size)`` in pixels.
         """
         return (
@@ -211,16 +201,10 @@ class Renderer:
 
     # --------------------------------------------------------------- drawing
 
-    def draw(
-        self,
-        level: LevelView,
-        player: PlayerView,
-        ghosts: Sequence[GhostView],
-        game: GameView,
-    ) -> None:
+    def draw(self, level: LevelView, player: PlayerView,
+             ghosts: Sequence[GhostView], game: GameView) -> None:
         """Draw one complete frame.
 
-        Args:
             level: The maze and its remaining pickups.
             player: The player's position and animation state.
             ghosts: Every ghost, in any order.
@@ -254,9 +238,9 @@ class Renderer:
             return
         for top in range(0, height, PAPER_TILE_SIZE):
             for left in range(0, width, PAPER_TILE_SIZE):
-                if not self._gfx.draw_sprite(
-                    path, left, top, PAPER_TILE_SIZE
-                ):
+                if not self._gfx.draw_sprite(path, left, top,
+                                             PAPER_TILE_SIZE,
+                                             PAPER_TILE_SIZE):
                     return
 
     def _draw_maze(self, grid: Grid, frightened: bool) -> None:
@@ -274,14 +258,14 @@ class Renderer:
         floor_layer = Layer.FLOOR_INVERTED if frightened else Layer.FLOOR
         floor_path = SPRITE_PATHS.get(floor_layer)
         paper_path = SPRITE_PATHS.get(
-            Layer.PAPER_INVERTED if frightened else Layer.PAPER
-        )
+            Layer.PAPER_INVERTED if frightened else Layer.PAPER)
         skip_floor = (
             not FORCE_PLACEHOLDERS
             and floor_path is not None
             and paper_path is not None
             and not self._gfx.has_sprite(floor_path, self._cell)
-            and self._gfx.has_sprite(paper_path, PAPER_TILE_SIZE)
+            and self._gfx.has_sprite(paper_path, PAPER_TILE_SIZE,
+                                     PAPER_TILE_SIZE)
         )
         for y in range(grid.height):
             for x in range(grid.width):
@@ -292,11 +276,11 @@ class Renderer:
                         self._fill(floor_layer, left, top, size, size)
                 if self._sprite(wall_sprite(walls), left, top, size):
                     continue
-                self._draw_wall_edges(walls, left, top, size)
+                self._draw_wall_edges(walls, left, top, size, frightened)
 
-    def _draw_wall_edges(
-        self, walls: frozenset[Direction], left: int, top: int, size: int
-    ) -> None:
+    def _draw_wall_edges(self, walls: frozenset[Direction],
+                         left: int, top: int, size: int,
+                         frightened: bool = False) -> None:
         """Draw a cell's walls one side at a time.
 
         The second of three art levels. A whole-cell tile from
@@ -306,29 +290,37 @@ class Renderer:
 
         Bars rather than a filled cell keep the maze readable before any
         artwork exists: corridors stay open and walls read as lines.
+
+        The bars take WALL_INVERTED while a power pellet is in effect, so
+        a palette that darkens the corridors can lighten the walls to
+        match. Leaving the two colours equal keeps the walls unchanged.
         """
+        ink = Layer.WALL_INVERTED if frightened else Layer.WALL
         if len(walls) == 4:
             if self._sprite(WALL_BLOCK_SPRITE, left, top, size):
                 return
-            self._fill(Layer.WALL, left, top, size, size)
+            self._fill(ink, left, top, size, size)
             return
         thickness = max(2, int(size * WALL_THICKNESS_RATIO))
         for side in walls:
             if self._sprite(wall_edge_sprite(side), left, top, size):
                 continue
             if side is Direction.NORTH:
-                self._fill(Layer.WALL, left, top, size, thickness)
+                self._fill(ink, left, top, size, thickness)
             elif side is Direction.SOUTH:
-                self._fill(Layer.WALL, left, top + size - thickness, size, thickness)
+                self._fill(ink, left, top + size - thickness,
+                           size, thickness)
             elif side is Direction.WEST:
-                self._fill(Layer.WALL, left, top, thickness, size)
+                self._fill(ink, left, top, thickness, size)
             else:
-                self._fill(Layer.WALL, left + size - thickness, top, thickness, size)
+                self._fill(ink, left + size - thickness, top,
+                           thickness, size)
 
     def _draw_pickups(self, level: LevelView) -> None:
         """Draw the remaining pacgums and super-pacgums."""
         for layer in (Layer.PACGUM, Layer.SUPER_PACGUM):
-            cells = level.pacgums if layer is Layer.PACGUM else level.super_pacgums
+            cells = (level.pacgums if layer is Layer.PACGUM
+                     else level.super_pacgums)
             path = SPRITE_PATHS.get(layer)
             for x, y in cells:
                 left, top, size = self.cell_rect(x, y)
@@ -349,23 +341,25 @@ class Renderer:
         for ghost in ghosts:
             left, top, size = self.cell_rect(ghost.x, ghost.y)
             index = ghost.index % len(_GHOST_LAYERS)
-            if self._sprite(
-                ghost_sprite(index, ghost.frame, ghost.state), left, top, size
-            ):
+
+            def whole(f: int, i: int = index, st: str = ghost.state) -> str:
+                return ghost_sprite(i, f, st)
+
+            if self._animated(whole, ghost.frame, left, top, size):
                 continue
             if ghost.state in ("frightened", "dead"):
-                if self._sprite(
-                    ghost_state_sprite(ghost.state, ghost.frame), left, top, size
-                ):
+                def shared(f: int, st: str = ghost.state) -> str:
+                    return ghost_state_sprite(st, f)
+
+                if self._animated(shared, ghost.frame, left, top, size):
                     continue
-                layer = (
-                    Layer.GHOST_FRIGHTENED
-                    if ghost.state == "frightened"
-                    else Layer.GHOST_DEAD
-                )
+                layer = (Layer.GHOST_FRIGHTENED
+                         if ghost.state == "frightened"
+                         else Layer.GHOST_DEAD)
                 self._inset_fill(layer, left, top, size)
                 continue
-            if self._sprite(ghost_body_sprite(ghost.frame), left, top, size):
+            if self._animated(ghost_body_sprite, ghost.frame,
+                              left, top, size):
                 self._sprite(ghost_hat_sprite(index), left, top, size)
                 continue
             self._inset_fill(_GHOST_LAYERS[index], left, top, size)
@@ -378,41 +372,43 @@ class Renderer:
         drawn images cover all four directions instead of twelve.
         """
         left, top, size = self.cell_rect(player.x, player.y)
-        if self._sprite(player_sprite(player.facing, player.frame), left, top, size):
+
+        def facing(f: int, d: Direction = player.facing) -> str:
+            return player_sprite(d, f)
+
+        if self._animated(facing, player.frame, left, top, size):
             return
         turns, flip_x = PLAYER_TRANSFORM.get(player.facing, (0, False))
-        base = player_base_sprite(player.frame)
-        if not FORCE_PLACEHOLDERS and self._gfx.draw_sprite(
-            base, left, top, size, size, turns, flip_x
-        ):
-            return
+        if not FORCE_PLACEHOLDERS:
+            for frame in (player.frame, 0):
+                if self._gfx.draw_sprite(player_base_sprite(frame), left,
+                                         top, size, size, turns, flip_x):
+                    return
         self._inset_fill(Layer.PLAYER, left, top, size)
 
     def _draw_hud(self, game: GameView) -> None:
         """Draw the banner across the top: score, lives, level and time."""
         width, _ = self._gfx.screen_size()
         banner = SPRITE_PATHS.get(Layer.BANNER)
-        if (
-            FORCE_PLACEHOLDERS
-            or banner is None
-            or not self._gfx.draw_sprite(banner, 0, 0, width, HUD_HEIGHT)
-        ):
+        if FORCE_PLACEHOLDERS or banner is None or not self._gfx.draw_sprite(
+                banner, 0, 0, width, HUD_HEIGHT):
             self._fill(Layer.BANNER, 0, 0, width, HUD_HEIGHT)
 
         seconds = max(0, int(game.time_left))
         left_text = f"SCORE {game.score}"
         mid_text = f"LEVEL {game.level_number}"
-        right_text = f"LIVES {game.lives}   TIME {seconds // 60}:" f"{seconds % 60:02d}"
+        right_text = f"LIVES {game.lives}   TIME {seconds // 60}:" \
+                     f"{seconds % 60:02d}"
         color = FALLBACK_COLORS[Layer.TEXT]
         top = (HUD_HEIGHT - HUD_TEXT_SIZE) // 2
 
         self._gfx.draw_text(left_text, HUD_PADDING, top, HUD_TEXT_SIZE, color)
         mid_w, _ = self._gfx.text_size(mid_text, HUD_TEXT_SIZE)
-        self._gfx.draw_text(mid_text, (width - mid_w) // 2, top, HUD_TEXT_SIZE, color)
+        self._gfx.draw_text(mid_text, (width - mid_w) // 2, top,
+                            HUD_TEXT_SIZE, color)
         right_w, _ = self._gfx.text_size(right_text, HUD_TEXT_SIZE)
-        self._gfx.draw_text(
-            right_text, width - right_w - HUD_PADDING, top, HUD_TEXT_SIZE, color
-        )
+        self._gfx.draw_text(right_text, width - right_w - HUD_PADDING, top,
+                            HUD_TEXT_SIZE, color)
 
     # ---------------------------------------------------------------- helpers
 
@@ -422,11 +418,37 @@ class Renderer:
             return False
         return self._gfx.draw_sprite(path, x, y, size)
 
-    def _fill(self, layer: Layer, x: int, y: int, width: int, height: int) -> None:
+    def _animated(self, builder: Callable[[int], str], frame: int,
+                  x: int, y: int, size: int) -> bool:
+        """Draw an animation frame, falling back to the first one.
+
+        An artist may draw one frame of something the code cycles through
+        several of. Without this, the missing frames would fall through to
+        a flat colour and the sprite would strobe between artwork and
+        block several times a second. Falling back to frame 0 instead
+        makes a single drawing simply hold still, so any number of frames
+        works.
+
+            builder: Turns a frame index into a path.
+            frame: The frame the animation is on.
+            x: Left edge in pixels.
+            y: Top edge in pixels.
+            size: Width and height in pixels.
+            True if anything was drawn.
+        """
+        if self._sprite(builder(frame), x, y, size):
+            return True
+        if frame == 0:
+            return False
+        return self._sprite(builder(0), x, y, size)
+
+    def _fill(self, layer: Layer, x: int, y: int,
+              width: int, height: int) -> None:
         """Fill a rectangle with a layer's fallback colour."""
         self._gfx.fill_rect(self._color(layer), x, y, width, height)
 
-    def _inset_fill(self, layer: Layer, left: int, top: int, size: int) -> None:
+    def _inset_fill(self, layer: Layer, left: int, top: int,
+                    size: int) -> None:
         """Fill a layer's placeholder, shrunk by its inset.
 
         Insets are what keep placeholder mode legible: pickups stay small

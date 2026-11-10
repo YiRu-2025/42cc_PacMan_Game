@@ -3,6 +3,9 @@
 Nothing here depends on pygame or on the external maze package, so every
 other module can import it freely.
 
+Numeric gameplay values (lives, scores, level sizes) are NOT here: they come
+from the configuration file and live in ``pacman.config``. Keeping a second
+copy of them would guarantee the two drift apart.
 
 The art contract at the bottom is deliberately tolerant. Every drawable
 names a sprite file and a fallback colour; a missing or unreadable file
@@ -32,6 +35,7 @@ class Direction(Enum):
     Each member carries its own ``(dx, dy)`` step. ``y`` grows downwards,
     matching the row-major maze layout.
     """
+
     NORTH = (0, -1)
     EAST = (1, 0)
     SOUTH = (0, 1)
@@ -76,26 +80,29 @@ FPS: Final[int] = 60
 PLAYER_STEPS_PER_SECOND: Final[float] = 6.0
 GHOST_STEPS_PER_SECOND: Final[float] = 5.0
 FRIGHTENED_DURATION: Final[float] = 7.0
+FRIGHTENED_SPEED_FACTOR: Final[float] = 0.6
+"""How much slower a frightened ghost moves than a chasing one."""
+
+RESPAWN_GRACE: Final[float] = 1.5
+"""Seconds of invulnerability after a respawn, so a ghost camped on the
+spawn point cannot take every remaining life in a row."""
+
+MAX_FRAME_DT: Final[float] = 0.1
+"""Longest step handed to the simulation.
+
+A stall — a window drag, a slow first frame — must not let an entity cross
+several walls in one tick. Capping the step makes the game run slow rather
+than behave wrongly."""
+
 GHOST_RESPAWN_DELAY: Final[float] = 5.0
 DEATH_PAUSE: Final[float] = 1.5
 CHEAT_SPEED_MULTIPLIER: Final[float] = 2.0
-CHEAT_BINDINGS: Final[dict[str, str]] = {
-    "1": "skip level", "2": "invincible", "3": "freeze ghosts",
-    "4": "extra life", "5": "speed boost",
-}
 
 PLAYER_FRAME_COUNT: Final[int] = 3
 GHOST_FRAME_COUNT: Final[int] = 2
 ANIMATION_FPS: Final[float] = 6.0
 
-RESPAWN_GRACE: Final[float] = 2.0
-"""Seconds of invulnerability after the player (re)spawns."""
 
-MAX_FRAME_DT: Final[float] = 0.1
-"""Longest time step simulated at once; also used by gfx.present()."""
-
-FRIGHTENED_SPEED_FACTOR: Final[float] = 0.6
-"""Frightened ghosts move at this fraction of their normal speed."""
 # --------------------------------------------------------------------------
 # Layout
 #
@@ -116,11 +123,9 @@ WINDOW_MARGIN: Final[int] = 16
 def cell_size_for(width: int, height: int) -> int:
     """Return the largest readable cell size that fits a maze on screen.
 
-    Args:
         width: Maze width, in cells.
         height: Maze height, in cells.
 
-    Returns:
         A cell size in pixels, between MIN_CELL_SIZE and TARGET_CELL_SIZE.
         A maze too large to fit even at MIN_CELL_SIZE still returns
         MIN_CELL_SIZE; the caller is expected to scroll or letterbox rather
@@ -162,6 +167,34 @@ letters and CJK characters, which the subject's "alphanumeric" does not.
 # --------------------------------------------------------------------------
 
 ASSETS_DIR: Final[str] = "assets"
+FONT_DIR: Final[str] = "fonts"
+
+TITLE_FONT: Final[str] = "PressStart2P-Regular.ttf"
+BODY_FONT: Final[str] = "VT323-Regular.ttf"
+TITLE_FONT_MIN_SIZE: Final[int] = 40
+"""Point at which text switches to the title face.
+
+Two faces, split by size rather than by caller, so no scene has to know
+which font it wants. Titles are set at 48 and above and land on Press
+Start 2P; menu entries, the HUD, the highscore table and the name prompt
+stay on VT323, where a square bitmap face would be unreadably wide.
+
+Both files are optional. A missing one falls back to pygame's built-in
+font, the same way a missing sprite falls back to a flat colour.
+"""
+
+TITLE_FONT_SCALE: Final[float] = 0.78
+BODY_FONT_SCALE: Final[float] = 1.25
+"""Per-face corrections, so scenes keep asking for the size they mean.
+
+A scene asks for 56px meaning "a title" and 28px meaning "the HUD", but
+the two faces disagree about what a pixel size looks like. Press Start 2P
+is a square bitmap face and sets far wider and heavier than the default
+at the same number; VT323 is a tall condensed terminal face and sets
+smaller. Correcting here keeps every scene's numbers unchanged and keeps
+the correction in one place, instead of retuning a dozen constants across
+the scenes each time a face is swapped.
+"""
 
 FORCE_PLACEHOLDERS: Final[bool] = False
 """Set True to draw the whole game as flat colour, ignoring every sprite.
@@ -181,6 +214,7 @@ class Layer(Enum):
     PAPER = "paper"
     PAPER_INVERTED = "paper_inverted"
     WALL = "wall"
+    WALL_INVERTED = "wall_inverted"
     FLOOR = "floor"
     FLOOR_INVERTED = "floor_inverted"
     PACGUM = "pacgum"
@@ -194,7 +228,9 @@ class Layer(Enum):
     GHOST_FRIGHTENED = "ghost_frightened"
     GHOST_DEAD = "ghost_dead"
     BANNER = "banner"
+    BANNER_INVERTED = "banner_inverted"
     TEXT = "text"
+    TEXT_INVERTED = "text_inverted"
     TEXT_DIM = "text_dim"
 
 
@@ -202,10 +238,11 @@ Color = tuple[int, int, int]
 
 FALLBACK_COLORS: Final[dict[Layer, Color]] = {
     Layer.PAPER: (232, 220, 192),
-    Layer.PAPER_INVERTED: (120, 52, 44),
+    Layer.PAPER_INVERTED: (25, 25, 25),
     Layer.WALL: (38, 32, 28),
+    Layer.WALL_INVERTED: (38, 32, 28),
     Layer.FLOOR: (240, 230, 205),
-    Layer.FLOOR_INVERTED: (138, 66, 54),
+    Layer.FLOOR_INVERTED: (220, 220, 220),
     Layer.PACGUM: (176, 134, 56),
     Layer.PACGUM_EATEN: (214, 202, 178),
     Layer.SUPER_PACGUM: (212, 166, 62),
@@ -217,13 +254,38 @@ FALLBACK_COLORS: Final[dict[Layer, Color]] = {
     Layer.GHOST_FRIGHTENED: (72, 68, 62),
     Layer.GHOST_DEAD: (198, 190, 172),
     Layer.BANNER: (198, 178, 144),
+    Layer.BANNER_INVERTED: (34, 34, 32),
     Layer.TEXT: (42, 34, 28),
+    Layer.TEXT_INVERTED: (232, 230, 222),
     Layer.TEXT_DIM: (126, 112, 92),
 }
 """Flat colour drawn when a layer's sprite is missing.
 
 Chosen to stay legible together: dark walls on pale paper, warm metallic
 pickups, desaturated ghosts. A partially illustrated game still reads.
+
+The ``*_INVERTED`` entries are the power-pellet palette. Without alpha
+blending there is no way to tint the screen, so the effect is a second set
+of colours swapped in wholesale. Two readings of it work, and choosing
+between them is a matter of editing these numbers, not the renderer:
+
+* As set below, corridors lift to film white and the surround drops to
+  black. Cool and sharp, but corridors cover most of the screen and they
+  stay light, so the shift is a change of temperature rather than a flip.
+* A true negative reverses the ground instead. Set PAPER_INVERTED to
+  (18, 18, 18), FLOOR_INVERTED to (38, 38, 38), WALL_INVERTED to
+  (226, 224, 214), GHOST_FRIGHTENED to (236, 236, 232) and GHOST_DEAD to
+  (120, 118, 112). Everything stays legible — the brass pickups measure
+  4.5:1 against the dark corridor — and the maze genuinely inverts.
+
+WALL_INVERTED matters only for the second reading: leaving it equal to
+WALL keeps the walls dark, which is what the first reading wants.
+
+BANNER_INVERTED and TEXT_INVERTED come as a pair. A darkened banner with
+the ordinary dark lettering on it is unreadable, so the HUD swaps both or
+neither; set BANNER_INVERTED equal to BANNER to leave the HUD alone during
+a pellet, which is defensible if you want the score read as a frame around
+the film rather than part of it.
 """
 
 PLACEHOLDER_INSET: Final[dict[Layer, float]] = {
@@ -253,6 +315,22 @@ colour-block mode readable: dots stay small, walls stay solid.
 # falling back when a path does not exist.
 # --------------------------------------------------------------------------
 
+CHEAT_BINDINGS: Final[dict[str, str]] = {
+    "2": "toggle invincibility",
+    "1": "skip to the next level",
+    "3": "freeze the ghosts",
+    "4": "grant an extra life",
+    "5": "toggle double speed",
+}
+"""Cheat keys, as a single table.
+
+Read by both the instructions screen and ``pacman.cheats``, so a binding
+cannot be added to one and forgotten in the other. The subject requires the
+cheats to be documented in-game, and a defense is the only time anyone
+reads that screen.
+"""
+
+
 PAPER_TILE_SIZE: Final[int] = 256
 """Side of one paper tile, in pixels.
 
@@ -273,6 +351,7 @@ SPRITE_PATHS: Final[dict[Layer, str]] = {
     Layer.PACGUM_EATEN: "pickups/pacgum_eaten.png",
     Layer.SUPER_PACGUM: "pickups/super_pacgum.png",
     Layer.BANNER: "ui/banner.png",
+    Layer.BANNER_INVERTED: "ui/banner_inverted.png",
 }
 """Single-file sprites. Animated and parameterised ones use the builders."""
 
@@ -280,10 +359,7 @@ SPRITE_PATHS: Final[dict[Layer, str]] = {
 def wall_sprite(walls: frozenset[Direction]) -> str:
     """Return the whole-cell tile path for a cell's wall combination.
 
-    Args:
         walls: The sides that are blocked.
-
-    Returns:
         A path such as ``walls/wall_1010.png``, the four digits being
         north, east, south and west in that order.
 
@@ -302,10 +378,8 @@ def wall_edge_sprite(side: Direction) -> str:
     side. This is the cheapest art level that still looks drawn rather than
     filled.
 
-    Args:
         side: Which side of the cell the edge runs along.
 
-    Returns:
         A path such as ``walls/edge_n.png``.
     """
     return f"walls/edge_{side.name[0].lower()}.png"
@@ -318,11 +392,9 @@ def player_sprite(facing: Direction, frame: int) -> str:
     ``player_base_sprite`` by rotating or mirroring, so three eastward
     frames cover all four directions.
 
-    Args:
         facing: Direction the player is moving in.
         frame: Frame index, wrapped into ``range(PLAYER_FRAME_COUNT)``.
 
-    Returns:
         A path such as ``player/player_e_0.png``.
     """
     letter = facing.name[0].lower()
@@ -332,10 +404,8 @@ def player_sprite(facing: Direction, frame: int) -> str:
 def player_base_sprite(frame: int) -> str:
     """Return the path for a player frame drawn facing east.
 
-    Args:
         frame: Frame index, wrapped into ``range(PLAYER_FRAME_COUNT)``.
 
-    Returns:
         A path such as ``player/player_0.png``.
     """
     return f"player/player_{frame % PLAYER_FRAME_COUNT}.png"
@@ -363,12 +433,10 @@ def ghost_sprite(index: int, frame: int, state: str = "normal") -> str:
     Optional: when absent the renderer composes the ghost from a shared
     body plus a per-ghost hat, or from a shared state sprite.
 
-    Args:
         index: Ghost number, 0 to 3.
         frame: Frame index, wrapped into ``range(GHOST_FRAME_COUNT)``.
         state: ``"normal"``, ``"frightened"`` or ``"dead"``.
 
-    Returns:
         A path such as ``ghosts/ghost_2_frightened_1.png``.
     """
     return (f"ghosts/ghost_{index}_{state}_"
@@ -378,10 +446,8 @@ def ghost_sprite(index: int, frame: int, state: str = "normal") -> str:
 def ghost_body_sprite(frame: int) -> str:
     """Return the path for the body all four ghosts share.
 
-    Args:
         frame: Frame index, wrapped into ``range(GHOST_FRAME_COUNT)``.
 
-    Returns:
         A path such as ``ghosts/body_1.png``.
     """
     return f"ghosts/body_{frame % GHOST_FRAME_COUNT}.png"
@@ -394,10 +460,8 @@ def ghost_hat_sprite(index: int) -> str:
     distinguishable ghosts. Colour has to come from this overlay: tinting
     the body would need alpha blending, which MLX has no counterpart for.
 
-    Args:
         index: Ghost number, 0 to 3.
 
-    Returns:
         A path such as ``ghosts/hat_2.png``.
     """
     return f"ghosts/hat_{index}.png"
@@ -406,11 +470,9 @@ def ghost_hat_sprite(index: int) -> str:
 def ghost_state_sprite(state: str, frame: int) -> str:
     """Return the path for the frightened or dead form shared by all ghosts.
 
-    Args:
         state: ``"frightened"`` or ``"dead"``.
         frame: Frame index, wrapped into ``range(GHOST_FRAME_COUNT)``.
 
-    Returns:
         A path such as ``ghosts/frightened_0.png``.
     """
     return f"ghosts/{state}_{frame % GHOST_FRAME_COUNT}.png"
@@ -419,10 +481,8 @@ def ghost_state_sprite(state: str, frame: int) -> str:
 def digit_sprite(character: str) -> str:
     """Return the path for one HUD glyph drawn as an image.
 
-    Args:
         character: A single character to render.
 
-    Returns:
         A path such as ``ui/glyph_7.png``. Glyphs are optional; when the
         file is missing, gfx.py draws the character with a font instead.
     """

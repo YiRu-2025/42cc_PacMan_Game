@@ -66,14 +66,12 @@ class Game:
                  ) -> None:
         """Start a run at level 1.
 
-        Args:
             cfg: Validated configuration.
             cheat: Shared cheat state; a fresh disabled one if omitted.
             loader_fac: Builds a loader for a given (width, height).
                 A loader has a fixed size and levels differ, so one is
                 created per level. Tests inject a fake generator here.
-
-        Raises:
+                
             MazeError: If the maze generator fails. app.py catches it,
                 because only it knows where to go back to.
         """
@@ -166,7 +164,6 @@ class Game:
         over) the method returns at once, because the code after it would
         work on stale data.
 
-        Args:
             dt: Seconds since the previous call.
         """
         if self.phase is not Phase.PLAYING:
@@ -232,10 +229,10 @@ class Game:
             if not (same or swapped):
                 continue
             if ghost.state is GhostState.FRIGHTENED:
-                self._add_scroe(self.cfg.points_per_ghost)
+                self._add_score(self.cfg.points_per_ghost)
                 ghost.eaten()
             elif not (self.cheat.invincible or self.grace > 0):
-                self._lose_life()
+                self._lose_live()
                 return
 
     # ----
