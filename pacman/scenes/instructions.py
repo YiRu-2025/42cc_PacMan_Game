@@ -14,7 +14,7 @@ HEADING_SIZE: int = 30
 ROW_SIZE: int = 26
 ROW_HEIGHT: int = 32
 SECTION_GAP: int = 20
-KEY_COLUMN: int = 200
+KEY_COLUMN: int = 264
 TOP_MARGIN: int = 36
 BOTTOM_MARGIN: int = 44
 """Width of the key column, in pixels, before the description starts."""

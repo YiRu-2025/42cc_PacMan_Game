@@ -170,6 +170,18 @@ FONT_DIR: Final[str] = "fonts"
 TITLE_FONT: Final[str] = "PressStart2P-Regular.ttf"
 BODY_FONT: Final[str] = "VT323-Regular.ttf"
 TITLE_FONT_MIN_SIZE: Final[int] = 40
+
+BODY_FONT_FAMILIES: Final[tuple[str, ...]] = (
+    "dejavusansmono",
+    "liberationmono",
+    "menlo",
+    "sfmono",
+    "consolas",
+    "cascadiamono",
+    "couriernew",
+    "monospace",
+)
+
 """Point at which text switches to the title face.
 
 Two faces, split by size rather than by caller, so no scene has to know

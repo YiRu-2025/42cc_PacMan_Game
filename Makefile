@@ -1,11 +1,8 @@
 PYTHON  := python3
 ENTRY   := pac-man.py
-CONFIG  := config.json
+CONFIG  ?= config.json
+SOURCES := pacman tests pac-man.py
 VENDOR  := $(wildcard vendor/mazegenerator-*.whl)
-
-MYPY_FLAGS := --warn-return-any --warn-unused-ignores \
-              --ignore-missing-imports --disallow-untyped-defs \
-              --check-untyped-defs
 
 .PHONY: all install run debug clean lint lint-strict test re help
 
@@ -25,12 +22,10 @@ debug:
 	$(PYTHON) -m pdb $(ENTRY) $(CONFIG)
 
 lint:
-	flake8 --max-line-length=88 --extend-ignore=E203
-	mypy --strict .
+	$(PYTHON) -m flake8 $(SOURCES)
+	$(PYTHON) -m mypy --strict --explicit-package-bases pacman pac-man.py
 
-lint-strict:
-	$(PYTHON) -m flake8 .
-	$(PYTHON) -m mypy . --strict
+lint-strict: lint
 
 test:
 	$(PYTHON) -m pytest -q

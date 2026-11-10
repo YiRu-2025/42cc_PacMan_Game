@@ -37,6 +37,7 @@ import pygame
 from pacman.constants import (
     ASSETS_DIR,
     BODY_FONT,
+    BODY_FONT_FAMILIES,
     BODY_FONT_SCALE,
     FONT_DIR,
     FPS,
@@ -364,6 +365,10 @@ class Gfx:
                 return pygame.font.Font(path, max(8, round(size * scale)))
             except (pygame.error, OSError):
                 pass
+        if size < TITLE_FONT_MIN_SIZE:
+            system = pygame.font.match_font(BODY_FONT_FAMILIES)
+            if system is not None:
+                return pygame.font.Font(system, size)
         return pygame.font.Font(None, size)
 
     def draw_text(self, text: str, x: int, y: int, size: int, color: Color) -> None:
