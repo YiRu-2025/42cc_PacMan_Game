@@ -314,8 +314,8 @@ colour-block mode readable: dots stay small, walls stay solid.
 # --------------------------------------------------------------------------
 
 CHEAT_BINDINGS: Final[dict[str, str]] = {
-    "2": "toggle invincibility",
     "1": "skip to the next level",
+    "2": "toggle invincibility",
     "3": "freeze the ghosts",
     "4": "grant an extra life",
     "5": "toggle double speed",
