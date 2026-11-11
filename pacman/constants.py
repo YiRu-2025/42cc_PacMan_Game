@@ -63,9 +63,6 @@ def data_path(name: str) -> Path:
     return path if path.is_absolute() else data_dir() / path
 
 
-ASSETS_DIR: Final[str] = resource_path("assets")
-
-
 # --------------------------------------------------------------------------
 # Identity
 # --------------------------------------------------------------------------
@@ -212,8 +209,7 @@ letters and CJK characters, which the subject's "alphanumeric" does not.
 # not there. Renaming or reorganising artwork means editing this section and
 # nothing else.
 # --------------------------------------------------------------------------
-
-ASSETS_DIR: Final[str] = "assets"
+ASSETS_DIR: Final[str] = resource_path("assets")
 FONT_DIR: Final[str] = "fonts"
 
 TITLE_FONT: Final[str] = "PressStart2P-Regular.ttf"

@@ -529,6 +529,38 @@ maze with seed 1; `generate(seed)` then replaces it.
 - If `pip install pygame` compiles from source and takes minutes, the
   Python version has no prebuilt wheel. Use Python 3.12 or 3.13.
 
+`make itch` uploads the packaged zip file to itch.io with link https://yiru-2025.itch.io/pacman for this project. But need to download butler first.
+
+On linux terminal, run:
+```
+# 下载新版 butler
+curl -fL -o butler.zip \
+  https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+
+# 创建安装目录
+mkdir -p ~/.local/bin
+
+# 解压
+unzip -o butler.zip -d ~/.local/bin
+
+# 添加执行权限
+chmod +x ~/.local/bin/butler
+
+# 清理压缩包
+rm butler.zip
+```
+
+Then configure the PATH:
+```
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+
+source ~/.bashrc
+```
+
+Later need to login by cmd `butler login`, directing to the login authorization page of itch.io
+
+Finally, run `make itch` to upload the zip file.
+
 ## Resources
 
 ### Documentation
