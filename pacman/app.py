@@ -132,9 +132,7 @@ class App:
             if event.type is EventType.QUIT:
                 self.apply(Quit())
                 return False
-            if event.type is not EventType.KEY_DOWN:
-                continue
-            transition = scene.handle_event(event)
+            transition = scene.handle_event(event)      # KEY_DOWN and KEY_UP
             if transition is not None:
                 self.apply(transition)
                 self._draw()

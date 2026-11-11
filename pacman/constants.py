@@ -13,9 +13,58 @@ degrades to a flat coloured cell instead of an error. The game is therefore
 fully playable with an empty ``assets/`` directory, and artwork can be
 dropped in one file at a time.
 """
-
+import os
+import sys
 from enum import Enum
+from pathlib import Path
 from typing import Final
+
+
+def is_frozen() -> bool:
+    """True inside a PyInstaller build."""
+    return bool(getattr(sys, "frozen", False))
+
+
+def bundle_dir() -> Path:
+    """Root of the read-only files shipped with the game.
+
+    PyInstaller unpacks them into ``sys._MEIPASS``; from source it is the
+    repository root, so the game also works from any working directory.
+    """
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        return Path(meipass)
+    return Path(__file__).resolve().parent.parent
+
+
+def resource_path(rel: str) -> str:
+    """Absolute path of a bundled, read-only file (assets, default config)."""
+    return str(bundle_dir() / rel)
+
+
+def data_dir() -> Path:
+    """Where files the game writes (highscores) live.
+
+    From source: the current directory, as before. Frozen: beside the
+    executable, or ``~/.pac-man`` if that directory is not writable.
+    ``_MEIPASS`` is never used: it is deleted when the game exits.
+    """
+    if not is_frozen():
+        return Path.cwd()
+    exe_dir = Path(sys.executable).resolve().parent
+    if os.access(exe_dir, os.W_OK):
+        return exe_dir
+    return Path.home() / ".pac-man"
+
+
+def data_path(name: str) -> Path:
+    """Resolve a writable file name; absolute names are kept as given."""
+    path = Path(name)
+    return path if path.is_absolute() else data_dir() / path
+
+
+ASSETS_DIR: Final[str] = resource_path("assets")
+
 
 # --------------------------------------------------------------------------
 # Identity
@@ -78,7 +127,7 @@ WALL_ORDER: Final[tuple[Direction, ...]] = (
 
 FPS: Final[int] = 60
 PLAYER_STEPS_PER_SECOND: Final[float] = 6.0
-GHOST_STEPS_PER_SECOND: Final[float] = 5.0
+GHOST_STEPS_PER_SECOND: Final[float] = 1.0
 FRIGHTENED_DURATION: Final[float] = 7.0
 FRIGHTENED_SPEED_FACTOR: Final[float] = 0.6
 """How much slower a frightened ghost moves than a chasing one."""

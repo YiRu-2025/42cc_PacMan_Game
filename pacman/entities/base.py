@@ -31,7 +31,7 @@ class Entity(ABC):
         """Run as many steps as dt allows, return each step's result."""
         results: list[Any] = []
         self._cooldown -= dt
-        while self._cooldown <= 0:
+        while self._cooldown < 0:
             self._cooldown += 1 / self.speed
             self.prev = self.cell
             results.append(self.step(level, *ctx))

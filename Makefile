@@ -1,22 +1,26 @@
-PYTHON  := python3
-ENTRY   := pac-man.py
-CONFIG  ?= config.json
+NAME     := pac-man
+MAIN	 := pac-man.py
+CONFIG   ?= config.json
+PYTHON   := python3
+PLATFORM := $(shell uname -s | tr '[:upper:]' '[:lower:]')
+ARCHIVE  := $(NAME)-$(PLATFORM).zip
+ITCH     ?=
+CHANNEL  ?= $(PLATFORM)
 SOURCES := pacman tests pac-man.py
-VENDOR  := $(wildcard vendor/mazegenerator-*.whl)
+# one wheel, newest name wins, instead of passing a whole glob to pip
+VENDOR := $(lastword $(sort $(wildcard vendor/mazegenerator-*.whl)))
 
-.PHONY: all install run debug clean lint lint-strict test re help
+.PHONY: all install run debug clean lint lint-strict test re help package package-check itch clean-build
 
 all: help
 
 install:
-	@test -n "$(VENDOR)" || { \
-		echo "error: no mazegenerator wheel found in vendor/" >&2; \
-		exit 1; }
-	$(PYTHON) -m pip install -r requirements.txt
+	@test -n "$(VENDOR)" || { echo "error: no mazegenerator wheel in vendor/" >&2; exit 1; }
+	$(PYTHON) -m pip install --prefer-binary -r requirements.txt
 	$(PYTHON) -m pip install --force-reinstall $(VENDOR)
 
 run:
-	$(PYTHON) $(ENTRY) $(CONFIG)
+	${PYTHON} ${MAIN} ${CONFIG}
 
 debug:
 	$(PYTHON) -m pdb $(ENTRY) $(CONFIG)
@@ -36,6 +40,28 @@ clean:
 	find . -type f -name '*.py[cod]' -delete
 
 re: clean all
+
+clean-build:
+	rm -rf build dist
+
+# Build dist/pac-man and dist/pac-man-<platform>.zip
+package: clean-build
+	$(PYTHON) -m PyInstaller --noconfirm --clean pacman.spec
+	@test -f dist/$(NAME) || { echo "error: dist/$(NAME) was not built" >&2; exit 1; }
+	cd dist && $(PYTHON) -m zipfile -c $(ARCHIVE) $(NAME)
+	@echo "built dist/$(ARCHIVE)"
+
+# Run the build from an empty directory, so nothing is found by accident
+package-check:
+	@rm -rf /tmp/pacman-check && mkdir /tmp/pacman-check
+	cp dist/$(NAME) /tmp/pacman-check/
+	cd /tmp/pacman-check && ./$(NAME)
+
+# make itch ITCH=user/game      (needs butler; upload, then set the page to
+# draft / restricted in the itch.io dashboard)
+itch: package
+	@test -n "$(ITCH)" || { echo "usage: make itch ITCH=user/game" >&2; exit 1; }
+	butler push dist/$(ARCHIVE) $(ITCH):$(CHANNEL)
 
 help:
 	@echo "make install      install dependencies and the vendored maze wheel"

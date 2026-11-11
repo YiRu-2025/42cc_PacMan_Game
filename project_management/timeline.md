@@ -50,3 +50,41 @@ By the end of this phase, finalize the three interfaces: Config, Grid, and the g
 - [ ] project_management/progress.md: Actual progress compared to the plan.
 - [ ] project_management/test_plan.md: Acceptance test cases, bugs found and fixed.
 - [ ] project_management/issues.md: Blockers and records of disagreements.
+
+
+# Timeline
+
+Plan and actual, by phase. Dates are 2026.
+
+```mermaid
+gantt
+    title Pac-Man: actual schedule
+    dateFormat YYYY-MM-DD
+    section Foundation
+    1 Scaffolding, Makefile, repo        :done, p1, 2026-11-01, 2026-11-02
+    section Core
+    2 Data layer (config, maze_loader)   :done, p2, 2026-11-02, 2026-11-03
+    3 Rules (level, entities, game)      :done, p3, 2026-11-02, 2026-11-05
+    5 Highscores and cheats              :done, p5, 2026-11-03, 2026-11-05
+    section Interface
+    4 Graphics and scenes                :done, p4, 2026-11-05, 2026-11-06
+    6 Integration and debugging          :done, p6, 2026-11-07, 2026-11-10
+    section Finish
+    7 Artwork                            :active, p7, 2026-11-10, 2026-11-12
+    8 Docs and packaging                 :active, p8, 2026-11-10, 2026-11-14
+    Outstanding (pacgum, input, tests)   :crit, p9, 2026-11-11, 2026-11-14
+```
+
+| Phase | Planned | Actual | Deliverables |
+| --- | --- | --- | --- |
+| 1 | day 1 | to 2 Nov | `.gitignore`, `Makefile`, `requirements.txt`, `setup.cfg`, skeleton |
+| 2 | days 2-3 | 2-3 Nov | `constants.py`, `config.py`, `maze_loader.py`, tests |
+| 3 | days 3-5 | 2-5 Nov | `level.py`, `entities/`, `game.py` |
+| 4 | days 5-7 | 5-6 Nov | `gfx/`, `scenes/`, `app.py` |
+| 5 | days 6-8 | 3-5 Nov | `highscores.py`, `cheat.py`, `name_entry.py` |
+| 6 | days 8-9 | 7-10 Nov (overran) | integration; `make run` as first check |
+| 7 | last | from 10 Nov | placeholder art done, final art open |
+| 8 | last | from 10 Nov | docs written; `pacman.spec`, `make package`, itch.io open |
+
+Outstanding: apply `config.pacgum`; hold-to-move input; maze size ceiling;
+broken-config set on a school machine; rebuild drill.

@@ -81,11 +81,26 @@ nothing at all when the table is empty.
 
 | Key | What it does |
 | --- | --- |
-| Arrow keys, or W A S D | Steer. The direction is remembered: if the way is blocked the player keeps going the way it was already heading until that too is blocked |
-| Escape | Pause |
+| Arrow keys, or W A S D | **Hold** to keep moving in that direction; **tap** to move exactly one cell. Releasing the key stops the player. If two keys are held, the most recent one wins |
+| Escape | Pause (held keys are forgotten, so nothing runs away on resume) |
 
-The HUD across the top shows the score, the current level, the lives left
-and the time remaining on the level timer.
+The player never moves by itself. A blocked direction simply leaves it
+where it is, still facing that way.
+
+### Make targets
+
+| Target | What it does |
+| --- | --- |
+| `make install` | Dependencies (preferring prebuilt wheels) plus the vendored maze wheel |
+| `make run` | Start the game with `config.json` (`CONFIG=other.json` to override) |
+| `make debug` | Start the game under `pdb` |
+| `make lint` | `flake8`, then `mypy --strict` on `pacman` and `pac-man.py` |
+| `make lint-strict` | Same as `lint`; `lint` is already strict |
+| `make test` | The unit tests |
+| `make package` | PyInstaller build: `dist/pac-man` and `dist/pac-man-<platform>.zip` |
+| `make package-check` | Run the built executable from an empty directory |
+| `make itch ITCH=user/game` | Push the archive with `butler` |
+| `make clean` / `make re` | Remove caches and build output / clean then rebuild |
 
 ### Pause
 
@@ -119,10 +134,9 @@ play well.
 `1` is the most useful one: holding it down walks through every level to
 the victory screen in a few seconds.
 
-The same table is printed on the Instructions screen, and both come from
-one dictionary in `pacman/cheat.py`. They were once two separate lists and
-drifted apart, so the manual told the player to press keys that did
-nothing.
+The Instructions screen reads `constants.CHEAT_BINDINGS`; the game reads
+`cheat.CHEAT_ACTIONS`. They are two tables, and `tests/cheat_test.py`
+fails if their keys ever differ.
 
 ### End of a run
 
@@ -138,9 +152,9 @@ character that would later be dropped.
 
 ## Configuration
 
-The game reads one JSON file, named on the command line. Lines whose first
-non-blank character is `#` are stripped before parsing, so the file can be
-commented.
+The game reads one JSON file, named on the command line. Blank lines and
+lines whose first non-blank character is `#` or `//` are stripped before
+parsing. Comments after a value on the same line are not supported.
 
 ```json
 # ---- Game ----
@@ -331,35 +345,30 @@ initialised.
 
 ### Movement
 
-Entities move cell by cell, not pixel by pixel. Each entity carries a
-cooldown and takes one step every `1 / speed` seconds, so speed is
-expressed in cells per second and is independent of the frame rate. A
-frame longer than `MAX_FRAME_DT` is capped, so a stall makes the game run
-slow rather than letting anything cross a wall.
+Entities move cell by cell. Each carries a cooldown and takes one step
+every `1 / speed` seconds, so speed is in cells per second and independent
+of the frame rate. Frames longer than `MAX_FRAME_DT` are capped.
 
-The player keeps a buffered direction. On each step it tries the buffered
-direction first, then the one it was already going; only when both are
-blocked does it stop. This is why a turn pressed slightly early still
-takes effect at the junction.
+The player is driven by input only. `Player` keeps the list of held
+direction keys (the most recent wins) and the last press as a one-shot
+tap, so a key released between two steps still moves one cell. With no key
+held and no tap pending the player does not move, and its cooldown is
+reset so the next press responds immediately. Held keys survive a respawn
+and a level change; the play scene clears them on pause.
 
 ### Ghosts
-
 Each ghost is a three-state machine: chasing, frightened, dead.
+One breadth-first search per frame from the player's cell is shared by all
+four ghosts. A chasing ghost steps to the neighbour with the smallest
+distance, a frightened one to the largest; ties go to the first neighbour
+in north, east, south, west order, so behaviour is deterministic.
 
-One breadth-first search runs per frame from the player's cell, and all
-four ghosts share the resulting distance map. A chasing ghost steps to the
-neighbour with the smallest distance; a frightened one steps to the
-largest. One search for four ghosts rather than four searches is the
-reason the maze size in the configuration can be raised a long way before
-the frame rate suffers.
+A frightened ghost moves at `FRIGHTENED_SPEED_FACTOR` of its normal speed.
+An eaten ghost is moved at once to its home cell (the free cell beside its
+corner, not the corner itself), stays there for `GHOST_RESPAWN_DELAY`, then
+chases again. Each ghost's home is also its starting cell.
 
-A frightened ghost moves at `FRIGHTENED_SPEED_FACTOR` of its normal speed,
-so it can be caught. An eaten ghost becomes dead, returns to its own
-corner, and waits out `GHOST_RESPAWN_DELAY` before chasing again.
-
-Collision counts two cases: the ghost and the player in the same cell, and
-the two having swapped cells on the last step. Without the second case,
-two movers crossing head-on would pass through each other.
+Contact is the same cell, or a swap of cells during the last step.
 
 ### Timings
 
@@ -494,6 +503,32 @@ tables. Anything the configuration file can set lives in `config.py`;
 anything it cannot lives here. A value kept in both would eventually
 disagree with itself.
 
+### Level layout (`level.py`)
+Pacgums cover every walkable cell except the four corners (super-pacgums)
+and the player's start. Ghosts start beside the corners. The player starts
+on the walkable cell nearest the geometric centre. The sealed "42" cells
+are never walkable, so a level can always be cleared.
+`MazeLoader.__init__` builds the generator, which already generates one
+maze with seed 1; `generate(seed)` then replaces it.
+
+## Packaging
+
+`make package` runs PyInstaller on `pacman.spec` and zips the result.
+
+- **Read-only files** (`assets/`, the default `config.json`, `README.md`)
+  are bundled and found through `constants.resource_path`, which uses
+  `sys._MEIPASS` when frozen and the repository root otherwise.
+- **Written files** (the highscore table) go through `constants.data_path`:
+  beside the executable, or `~/.pac-man` if that directory is not
+  writable. Never `_MEIPASS`, which is deleted on exit.
+- **Configuration**: with no argument the executable uses a `config.json`
+  beside it if present, otherwise the bundled default.
+- **Release**: upload the zip to itch.io (`make itch ITCH=user/game`) and
+  set the page to non-public in the dashboard.
+- PyInstaller cannot cross-compile; build on each target platform.
+- If `pip install pygame` compiles from source and takes minutes, the
+  Python version has no prebuilt wheel. Use Python 3.12 or 3.13.
+
 ## Resources
 
 ### Documentation
@@ -561,37 +596,27 @@ instead, because the cost of touching a teammate's file outweighed the
 benefit.
 
 ## Project Management
-
-Two people, with the work split by what each part talks to rather than by
-file count: one owns everything inside a round of play, the other owns
-everything outside it.
-
-- **yru** — the rules: `level.py`, `entities/`, `game.py`, `cheat.py`,
-  `play.py`, `config.py`.
-- **sluyu** — the edges and the shell: `maze_loader.py`, `constants.py`,
-  `gfx/`, `highscores.py`, the menu screens, the artwork, the build and
-  packaging.
-
-The boundary is three agreed interfaces: the `Config` and `Grid` objects
-handed in, the `GameResult` handed back, and the view protocols the
-renderer declares. Fixing those early is what let the two halves be
-written in parallel, and the application is the only module that knows
-about both ends.
-
-Documents are in [`project_management/`](project_management/):
+Documents are in `project_management/`:
 
 | File | Contents |
 | --- | --- |
-| `timeline.md` | The plan, by phase |
-| `teamwork.md` | Who owns what, and how disagreements were settled |
-
----
+| `timeline.md` | Planned and actual schedule |
+| `analysis.md` | Technical choices and the pygame/MLX table |
+| `risks.md` | Risks, mitigations and their outcome |
+| `teamwork.md` | Who owns what, how disagreements were settled |
+| `progress.md` | Plan against actual |
+| `test_plan.md` | Automated and manual tests, defects found |
+| `issues.md` | Blocking points and open questions |
 
 ## Known limitations
+- `pacgum` is validated but not applied: every walkable cell receives a
+  pacgum.
+- Cheat keys are the digits 1 to 5; on AZERTY keyboards they need Shift.
+- Maze size has no agreed ceiling: above about 50×50 the maze is legible
+  but taller than most screens.
+- The renderer copies the pickup sets every frame; fine at the default
+  sizes, wasteful on very large mazes.
+- Ghost sprites are 32×32 and scaled up.
+- There is no sound: `pygame.mixer` has no MLX counterpart.
+---
 
-- The `pacgum` configuration key is read and validated but not yet applied
-  to the board; every walkable corridor receives a pacgum.
-- Ghost sprites are authored at 32×32 and scaled up to the cell size,
-  which is softer than the other artwork.
-- There is no sound. `pygame.mixer` has no MLX counterpart, so it is
-  excluded by the subject.

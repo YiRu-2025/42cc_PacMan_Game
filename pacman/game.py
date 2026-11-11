@@ -144,7 +144,10 @@ class Game:
 
     def _spawn(self) -> None:
         """(re)create the player and ghosts at their spawn points."""
+        previous = getattr(self, "player", None)
         self.player = Player(self.level.player, PLAYER_STEPS_PER_SECOND)
+        if previous is not None:
+            self.player.copy_input(previous)
         self.ghosts = [
             Ghost(
                 cell,

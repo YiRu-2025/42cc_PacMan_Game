@@ -113,17 +113,28 @@ class PlayScene(Scene):
 
     # ----------------------------------------------------------------- input
     def handle_event(self, event: Event) -> Transition | None:
+        direction = ARROW_KEYS.get(event.key)
+        if event.type is EventType.KEY_UP:
+            if direction is not None:
+                self.game.player.release(direction)
+            return None
         if event.type is not EventType.KEY_DOWN:
             return None
         if event.key is Key.ESCAPE:
             return Push(PauseScene(self.context))
-        direction = ARROW_KEYS.get(event.key)
         if direction is not None:
-            self.game.player.set_direction(direction)
+            self.game.player.press(direction)
             return None
         if event.char:
             self.game.cheat.handle_key(event.char)
         return None
+
+    def on_enter(self) -> None:
+        # a key released while paused is never seen by this scene
+        self.game.player.release_all()
+
+    def on_exit(self) -> None:
+        self.game.player.release_all()
 
     # ------------------------------------------------------------- the frame
 
