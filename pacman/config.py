@@ -125,7 +125,7 @@ def validated_int(data: dict[str, Any], key: str, default: int,
         warn(f"'{key}'={value} is outside [{low}, {high}]."
              f"Using default {default}.")
         return default
-    return value
+    return int(value)
 
 
 def validated_str(data: dict[str, Any], key: str, default: str) -> str:

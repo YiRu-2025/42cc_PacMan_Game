@@ -3,7 +3,7 @@
   "highscore_filename": "highscore.json",
   "lives": 3,
   "seed": 42,
-  "level_max_time": 90,
+  "level_max_time": 180,
 
   # ---- Scoring ----
   "points_per_pacgum": 10,
@@ -15,7 +15,15 @@
 
   # ---- Levels (array, one object per level) ----
   "levels": [
-    { "width": 20, "height": 15 },
-    { "width": 25, "height": 18 }
+    { "width": 20, "height": 14 },
+    { "width": 22, "height": 16 },
+    { "width": 24, "height": 18 },
+    { "width": 26, "height": 20 },
+    { "width": 28, "height": 22 },
+    { "width": 30, "height": 24 },
+    { "width": 32, "height": 26 },
+    { "width": 34, "height": 28 },
+    { "width": 36, "height": 30 },
+    { "width": 38, "height": 32 }
   ]
 }
